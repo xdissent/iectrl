@@ -1,0 +1,42 @@
+{
+  "name": "iectrl",
+  "version": "0.0.0",
+  "description": "Command line utility for ievms",
+  "main": "index.js",
+  "scripts": {
+    "test": "mocha",
+    "prepublish": "coffee -cbo lib src"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/xdissent/iectrl.git"
+  },
+  "keywords": [
+    "ievms",
+    "windows",
+    "modern.ie",
+    "ie",
+    "vm",
+    "explorer"
+  ],
+  "author": "Greg Thornton <xdissent@me.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/xdissent/iectrl/issues"
+  },
+  "dependencies": {
+    "commander": "~1.2.0",
+    "q": "~0.9.6",
+    "colors": "~0.6.0-1",
+    "moment": "~2.0.0"
+  },
+  "devDependencies": {
+    "coffee-script": "~1.6.3",
+    "groc": "~0.4.0",
+    "mocha": "~1.11.0",
+    "should": "~1.2.2"
+  },
+  "bin": {
+    "iectrl": "./lib/index.js"
+  }
+}
