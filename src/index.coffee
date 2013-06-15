@@ -24,7 +24,7 @@ expireMsg = (exp) ->
 
 oneOrAll = (name, err=null, missing=false, running=true, stopped=true) ->
   Q.fcall(-> if name? then IEVM.find name else IEVM.all()).then (vms) ->
-    Q.all(vm.statusKey() for vm in vms).then (status) ->
+    Q.all(vm.statusName() for vm in vms).then (status) ->
       vms = (vm for vm, i in vms when (status[i] isnt 'MISSING' or missing) and 
           (status[i] isnt 'RUNNING' or running) and 
           (status[i] not in statusesStopped or stopped))
@@ -48,28 +48,44 @@ program
   .command('status [name|version]')
   .description('report the status of one or more vms')
   .action (name) ->
-    catchFail oneOrAll(name, 'not found', program.missing).then (vms) ->
-      Q.all(vm.statusKey() for vm in vms).then (status) ->
-        Q.all(vm.expires() for vm in vms).then (expires) ->
-          Q.all(vm.rearmsLeft() for vm in vms).then (rearmsLeft) ->
-            for vm, i in vms
-              s = status[i][statusColors[status[i]]]
-              f = if expires[i]? then moment(expires[i]).fromNow() else ''
-              e = "#{expireMsg expires[i]} #{f}"
-              rc = switch rearmsLeft[i]
-                when 0 then "#{rearmsLeft[i]}".red
-                when 1 then "#{rearmsLeft[i]}".yellow
-                when 2 then "#{rearmsLeft[i]}".green
-              r = if status[i] is 'MISSING' then '' else "#{rc} rearms left"
-              console.log vm.name, s, e, r
+    catchFail oneOrAll(name, 'not found', program.missing)
+      .then (vms) -> Q.all(vm.statusName() for vm in vms)
+      .then (status) -> Q.all(vm.expires() for vm in vms)
+      .then (expires) -> Q.all(vm.rearmsLeft() for vm in vms)
+      .then (rearmsLeft) -> Q.all(vm.ovaed() for vm in vms)
+      .then (ovaed) -> Q.all(vm.archived() for vm in vms)
+      .then (archived) ->
+        for vm, i in vms
+          s = "#{status[i]}     ".slice 0, 8
+          s = s[statusColors[status[i]]]
+          f = if expires[i]? then moment(expires[i]).fromNow() else ''
+          e = "#{expireMsg expires[i]} #{f}"
+          rc = switch rearmsLeft[i]
+            when 0 then "#{rearmsLeft[i]}".red
+            when 1 then "#{rearmsLeft[i]}".yellow
+            else "#{rearmsLeft[i]}".green
+          r = if status[i] is 'MISSING' then '' else "#{rc} rearms left"
+          missing = 'missing'.red
+          present = 'present'.green
+          o = "ova #{if ovaed[i] then present else missing}"
+          a = "archive #{if archived[i] then present else missing}"
+          console.log "#{vm.name}\t\t#{s}\t\t#{o}\t\t#{a}\t\t#{e}\t\t#{r}"
 
 # ## Start
 program
   .command('start [name|version]')
   .description('start one or all stopped vms')
   .action (name) ->
-    catchFail oneOrAll(name, null, false, false).then (vms) ->
+    catchFail oneOrAll(name, 'cannot start', false, false).then (vms) ->
       Q.all(vm.start program.gui for vm in vms)
+
+# ## Restart
+program
+  .command('restart [name|version]')
+  .description('restart one or all running vms')
+  .action (name) ->
+    catchFail oneOrAll(name, 'cannot restart', false, true, false).then (vms) ->
+      Q.all(vm.restart() for vm in vms)
 
 # ## Stop
 program
@@ -89,7 +105,6 @@ program
       if !url? and (!name.match(/^IE/) or !name.match /^\d/)
         url = name
         name = null
-      console.log name, url
       oneOrAll(name, 'not running', false, true, false).then (vms) ->
         Q.all(vm.open url for vm in vms)
 
@@ -98,14 +113,16 @@ program
   .command('rearm [name|version]')
   .description('rearm one or all running vms')
   .action (name) ->
-    catchFail oneOrAll(name, 'not rearmable', false, true, false).then (vms) ->
+    catchFail oneOrAll(name, 'not expired', false, true, false).then (vms) ->
       Q.all(vm.rearm() for vm in vms)
 
-# ## Reset
+# ## Shrink
 program
-  .command('reset [name]')
-  .description('restore one or more vms to the clean snapshot')
-  .action (name) -> console.log 'RESET'
+  .command('shrink [name|version]')
+  .description('remove ovas for one or all vms')
+  .action (name) ->
+    catchFail oneOrAll(name, 'not expired', false, true, false).then (vms) ->
+      Q.all(vm.rearm() for vm in vms)
 
 # ## Install
 program
@@ -115,8 +132,14 @@ program
 
 # ## Uninstall
 program
-  .command('destroy [name|version]')
-  .description('install a given IE version or all missing IE vms')
-  .action (name) -> console.log 'INSTALL'
+  .command('uninstall [name|version]')
+  .description('uninstall a given IE version or all vms')
+  .action (name) -> console.log 'UNINSTALL'
+
+# ## Nuke
+program
+  .command('nuke [name|version]')
+  .description('remove all traces of a given IE version or all vms')
+  .action (name) -> console.log 'NUKE'
 
 module.exports = program
