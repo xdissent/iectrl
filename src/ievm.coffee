@@ -249,6 +249,14 @@ class IEVM
         deferred.resolve true
       deferred.promise
 
+  screenshot: (file) -> @ensureNotMissing().then => @ensureRunning().then =>
+    @debug 'screenshot'
+    deferred = Q.defer()
+    @vbm 'controlvm', ['screenshotpng', file], (err, stdout, stderr) =>
+      return deferred.reject err if err?
+      deferred.resolve true
+    deferred.promise
+
   debug: (msg) -> debug "#{@name}: #{msg}"
 
   # Build an environment hash to pass to ievms for installation.

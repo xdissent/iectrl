@@ -11,6 +11,7 @@ subcommands = [
   'rearm'
   'reinstall'
   'restart'
+  'screenshot'
   'shrink'
   'start'
   'status'
