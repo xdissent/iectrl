@@ -1,7 +1,7 @@
 cli = require '../cli'
 
 module.exports = (program) -> program
-  .command('close [names] [url]')
+  .command('close [names]')
   .description('close all running IE processes in virtual machines')
-  .action (names, url, command) ->
+  .action (names, command) ->
     cli.fail cli.find(names, 'running').found().all (vm) -> vm.close()
