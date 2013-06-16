@@ -13,8 +13,6 @@ statusColors =
   PAUSED: 'yellow'
   SAVED: 'yellow'
 
-statusesStopped = ['POWEROFF', 'PAUSED', 'SAVED']
-
 expireMsg = (exp) ->
   return '' unless exp?
   days = moment(exp).diff new Date, 'days'
@@ -22,33 +20,45 @@ expireMsg = (exp) ->
   c = if days <= 1 then 'red' else if days <= 7 then 'yellow' else 'green'
   msg[c]
 
-oneOrAll = (name, err=null, missing=false, running=true, stopped=true) ->
-  Q.fcall(-> if name? then IEVM.find name else IEVM.all()).then (vms) ->
-    Q.all(vm.statusName() for vm in vms).then (status) ->
-      vms = (vm for vm, i in vms when (status[i] isnt 'MISSING' or missing) and 
-          (status[i] isnt 'RUNNING' or running) and 
-          (status[i] not in statusesStopped or stopped))
-      throw "#{name} #{err}" if err? and name? and vms.length == 0
-      vms
-
 catchFail = (promise) ->
   promise.fail (err) ->
     console.error "#{'ERROR'.red}: #{err}"
     process.exit -1
 
-program
-  .version(pkg.version)
-  .option('-m, --missing', 'show VMs that are not installed')
-  .option('-R, --no-reuse-xp', 'do not reuse the XP VM when applicable')
-  .option('-H, --no-gui', 'launch vms in headless (non-gui) mode')
-  .option('-S, --no-save', 'power off vm when stopping rather than saving vm state')
+findVms = (names) -> Q.fcall ->
+  return IEVM.all() unless names? and names.length? and names.length > 0
+  vms = []
+  vms = vms.concat IEVM.find n.trim() for n in names.split ','
+  vms
+
+filter = (attr, vms, invert=false) ->
+  Q.all(vm[attr]() for vm in vms).then (attrs) ->
+    vm for vm, i in vms when if invert then attrs[i] else !attrs[i]
+
+maybeFilter = (maybe, attr, vms, invert=false) ->
+  if maybe then filter attr, vms, invert else Q.fcall -> vms
+
+autoStart = (headless, vms) ->
+  filter('running', vms).then (stopped) ->
+    Q.all(vm.start headless for vm in stopped).then -> vms
+
+maybeAutoStart = (maybe, headless, vms) ->
+  if maybe then autoStart headless, vms else Q.fcall -> vms
+
+ensureFound = (vms, err) ->
+  if vms.length == 0 then throw err else Q.fcall -> vms
+
+program.version(pkg.version)
 
 # ## Status
 program
-  .command('status [name|version]')
+  .command('status [names]')
   .description('report the status of one or more vms')
-  .action (name) ->
-    catchFail oneOrAll(name, 'not found', program.missing)
+  .option('-m, --missing', 'show VMs that are not installed')
+  .action (names, command) ->
+    catchFail findVms(names)
+      .then (vms) -> maybeFilter(!command.missing, 'missing', vms)
+      .then (vms) -> ensureFound(vms, 'no matching vms found')
       .then (vms) -> Q.all(vm.statusName() for vm in vms)
       .then (status) -> Q.all(vm.expires() for vm in vms)
       .then (expires) -> Q.all(vm.rearmsLeft() for vm in vms)
@@ -73,73 +83,143 @@ program
 
 # ## Start
 program
-  .command('start [name|version]')
-  .description('start one or all stopped vms')
-  .action (name) ->
-    catchFail oneOrAll(name, 'cannot start', false, false).then (vms) ->
-      Q.all(vm.start program.gui for vm in vms)
-
-# ## Restart
-program
-  .command('restart [name|version]')
-  .description('restart one or all running vms')
-  .action (name) ->
-    catchFail oneOrAll(name, 'cannot restart', false, true, false).then (vms) ->
-      Q.all(vm.restart() for vm in vms)
+  .command('start [names]')
+  .description('start virtual machines')
+  .option('-h, --headless', 'start in headless (non-gui) mode')
+  .action (names, command) ->
+    catchFail findVms(names)
+      .then (vms) -> filter('missing', vms)
+      .then (vms) -> ensureFound(vms, 'no matching vms found')
+      .then (vms) -> filter('running', vms)
+      .then (vms) -> Q.all(vm.start command.headless for vm in vms)
 
 # ## Stop
 program
-  .command('stop [name|version]')
-  .description('stop one or all running vms')
-  .action (name) ->
-    catchFail oneOrAll(name, 'not running', false, true, false).then (vms) ->
-      Q.all(vm.stop program.save for vm in vms)
+  .command('stop [names]')
+  .description('stop virtual machines')
+  .option('-S, --no-save', 'power off the virtual machine')
+  .action (names, command) ->
+    catchFail findVms(names)
+      .then (vms) -> filter('missing', vms)
+      .then (vms) -> ensureFound(vms, 'no matching vms found')
+      .then (vms) -> filter('running', vms, true)
+      .then (vms) -> Q.all(vm.stop command.save for vm in vms)
+
+# ## Restart
+program
+  .command('restart [names]')
+  .description('restart virtual machines (or start if not running)')
+  .option('-s, --start', 'start virtual machine if not running')
+  .option('-h, --headless', 'start in headless (non-gui) mode if not running')
+  .action (names, command) ->
+    catchFail findVms(names)
+      .then (vms) -> filter('missing', vms)
+      .then (vms) -> maybeFilter(!command.start, 'running', vms, true)
+      .then (vms) -> ensureFound(vms, 'no matching vms found')
+      .then (vms) -> Q.all(vm.running() for vm in vms)
+      .then (running) ->
+        Q.all((
+          if running[i]
+            vm.restart()
+          else
+            if command.start then vm.start command.headless else Q.fcall ->
+        ) for vm, i in vms)
 
 # ## Open
 program
-  .command('open [name|version] [url]')
-  .description('open a URL in IE in one or all running vms')
-  .action (name, url) ->
+  .command('open [names] [url]')
+  .description('open a URL in IE')
+  .option('-s, --start', 'start virtual machine if not running')
+  .option('-h, --headless', 'start in headless (non-gui) mode if not running')
+  .action (names, url, command) ->
     catchFail Q.fcall ->
-      throw "must specify url" unless name?
-      if !url? and (!name.match(/^IE/) or !name.match /^\d/)
-        url = name
-        name = null
-      oneOrAll(name, 'not running', false, true, false).then (vms) ->
-        Q.all(vm.open url for vm in vms)
+      throw "must specify url" unless names?
+      if !url? and names.match /^http/
+        url = names
+        names = null
+      findVms(names)
+        .then (vms) -> filter('missing', vms)
+        .then (vms) -> ensureFound(vms, 'no matching vms found')
+        .then (vms) -> maybeAutoStart(command.start, command.headless, vms)
+        .then (vms) -> filter('running', vms, true)
+        .then (vms) -> ensureFound(vms, 'no matching vms found')
+        .then (vms) -> Q.all(vm.open url for vm in vms)
 
 # ## Rearm
 program
-  .command('rearm [name|version]')
-  .description('rearm one or all running vms')
-  .action (name) ->
-    catchFail oneOrAll(name, 'not expired', false, true, false).then (vms) ->
-      Q.all(vm.rearm() for vm in vms)
-
-# ## Shrink
-program
-  .command('shrink [name|version]')
-  .description('remove ovas for one or all vms')
-  .action (name) ->
-    catchFail oneOrAll(name, 'not expired', false, true, false).then (vms) ->
-      Q.all(vm.rearm() for vm in vms)
+  .command('rearm [names]')
+  .description('rearm virtual machines')
+  .option('-E, --no-expired', 'rearm the even if not expired')
+  .action (names, command) ->
+    catchFail findVms(names)
+      .then (vms) -> filter('missing', vms)
+      .then (vms) -> maybeFilter(command.expired, 'expired', true)
+      .then (vms) -> ensureFound(vms, 'no matching vms found')
+      .then (vms) -> filter('running', vms)
+      .then (stopped) -> Q.all(vm.start true for vm in stopped)
+      .then -> Q.all(vm.rearm() for vm in vms)
+      .then -> Q.all(vm.stop() for vm in stopped)
 
 # ## Install
 program
-  .command('install [name|version]')
-  .description('install a given IE version or all missing IE vms')
-  .action (name) -> console.log 'INSTALL'
+  .command('install [names]')
+  .description('install virtual machines with ievms')
+  .action (names, command) ->
+    catchFail findVms(names)
+      .then (vms) -> filter('missing', vms, true)
+      .then (vms) -> ensureFound(vms, 'no matching vms found')
+      .then (vms) -> Q.all(vm.install() for vm in vms)
 
 # ## Uninstall
 program
-  .command('uninstall [name|version]')
-  .description('uninstall a given IE version or all vms')
-  .action (name) -> console.log 'UNINSTALL'
+  .command('uninstall [names]')
+  .description('uninstall virtual machines')
+  .action (names, command) ->
+    catchFail findVms(names)
+      .then (vms) -> filter('missing', vms)
+      .then (vms) -> ensureFound(vms, 'no matching vms found')
+      .then (vms) -> filter('running', vms, true)
+      .then (running) -> Q.all(vm.stop(false) for vm in running)
+      .then -> Q.all(vm.uninstall() for vm in vms)
+
+# ## Reinstall
+program
+  .command('reinstall [names]')
+  .description('reinstall virtual machines')
+  .action (names, command) ->
+    catchFail findVms(names)
+      .then (vms) -> filter('missing', vms)
+      .then (vms) -> ensureFound(vms, 'no matching vms found')
+      .then (vms) -> Q.all(vm.reinstall() for vm in vms)
+
+# ## Clean
+program
+  .command('clean [names]')
+  .description('restore virtual machines to the clean snapshot')
+  .action (names, command) ->
+    catchFail findVms(names)
+      .then (vms) -> filter('missing', vms)
+      .then (vms) -> ensureFound(vms, 'no matching vms found')
+      .then (vms) -> Q.all(vm.clean() for vm in vms)
+
+# ## Shrink
+program
+  .command('shrink [names]')
+  .description('shrink disk usage for virtual machines if archive is present')
+  .action (names, command) ->
+    catchFail findVms(names)
+      .then (vms) -> filter('ovaed', vms, true)
+      .then (vms) -> filter('archived', vms, true)
+      .then (vms) -> ensureFound(vms, 'no matching vms found')
+      .then (vms) -> Q.all(vm.unova() for vm in vms)
 
 # ## Nuke
 program
   .command('nuke [name|version]')
   .description('remove all traces of a given IE version or all vms')
-  .action (name) -> console.log 'NUKE'
+  .action (name) ->
+    catchFail oneOrAll(name, null, true, false, true).then (vms) ->
+      for vm, i in vms
+        vm.uninstall(true).then -> vm.unova(true).then -> vm.unarchive true
 
 module.exports = program
