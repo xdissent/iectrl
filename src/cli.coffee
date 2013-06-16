@@ -33,7 +33,8 @@ dsl =
       if ret then vals else vms
 
   autoStart: (headless) ->
-    addDsl @then (vms) => @where('!running').all((vm) -> vm.start headless).then -> vms
+    addDsl @then (vms) => @where('!running')
+      .all((vm) -> vm.start headless).then -> vms
 
   maybeAutoStart: (maybe, headless) -> if maybe then @autoStart headless else @
 
@@ -42,7 +43,8 @@ addDsl = (promise) ->
   promise
 
 exports.dsl = (vms) -> addDsl Q.fcall -> vms
-exports.find = (names, attrs...) -> dsl.where.apply Q.fcall(-> find names), attrs
+exports.find = (names, attrs...) ->
+  dsl.where.apply Q.fcall(-> find names), attrs
 exports.fail = (promise) ->
   promise.fail (err) ->
     console.error "#{'ERROR'.red}: #{err}"

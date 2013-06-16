@@ -8,7 +8,7 @@ module.exports = (program) -> program
   .option('-h, --headless', 'start in headless (non-gui) mode if not running')
   .action (names, url, command) ->
     cli.fail Q.fcall ->
-      throw "must specify url" unless names?
+      throw new Error "must specify url" unless names?
       if !url? and names.match /^http/
         url = names
         names = null

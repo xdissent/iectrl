@@ -51,6 +51,7 @@ class IEVM
 
   # The command used to install virtual machines via ievms.
   @ievms: 'curl -s https://raw.github.com/xdissent/ievms/master/ievms.sh | bash'
+  # @ievms: 'cd ~/Code/ievms && cat ievms.sh | bash'
 
   # ## Class Methods
 
@@ -61,11 +62,14 @@ class IEVM
   # a specific VM (`IE6 - WinXP`), an IE version number (`9` or `7`) or an OS
   # name (`WinXP` or `Vista`).
   @find: (name) ->
-    throw "No name specified" unless name?
-    throw "Invalid name: '#{name}'" unless typeof name is 'string' or typeof name is 'number'
+    throw new Error "No name specified" unless name?
+    if typeof name isnt 'string' and typeof name isnt 'number'
+      throw new Error "Invalid name: '#{name}'"
     return [new IEVM name] if name.match /^IE/
-    return (new IEVM n for n in @names when n.match "- #{name}") if name.match /^(Win|Vista)/
-    throw "Invalid name: '#{name}'" unless name.match(/^\d+$/) and parseInt(name) in @versions
+    if name.match /^(Win|Vista)/
+      return (new IEVM n for n in @names when n.match "- #{name}")
+    if !name.match(/^\d+$/) or parseInt(name) not in @versions
+      throw new Error "Invalid name: '#{name}'"
     new IEVM n for n in @names when n.match "IE#{name}"
 
   # Construct a `VBoxManage` command with arguments.
@@ -101,30 +105,37 @@ class IEVM
   # against all supported ievms names. The IE version and OS are extracted from
   # the name and validated as well.
   constructor: (@name) ->
-    throw "Invalid name: '#{@name}'" unless @name in @constructor.names
+    if @name not in @constructor.names
+      throw new Error "Invalid name: '#{@name}'"
     pieces = @name.split ' '
     @version = parseInt pieces[0].replace 'IE', ''
-    throw "Invalid version: '#{@version}'" unless @version in @constructor.versions
+    if @version not in @constructor.versions
+      throw new Error "Invalid version: '#{@version}'"
     @os = pieces.pop()
-    throw "Invalid OS: '#{@os}'" unless @os in @constructor.oses
+    throw new Error "Invalid OS: '#{@os}'" unless @os in @constructor.oses
 
-  ensureMissing: -> @missing().then (missing) -> missing || throw "not missing"
-  ensureNotMissing: -> @missing().then (missing) -> !missing || throw "missing"
-  ensureRunning: -> @running().then (running) -> running || throw "not running"
-  ensureNotRunning: -> @running().then (running) -> !running || throw "running"
+  ensureMissing: ->
+    @missing().then (missing) -> missing or throw new Error "not missing"
+  ensureNotMissing: ->
+    @missing().then (missing) -> !missing or throw new Error "missing"
+  ensureRunning: ->
+    @running().then (running) -> running or throw new Error "not running"
+  ensureNotRunning: ->
+    @running().then (running) -> !running or throw new Error "running"
 
   # Start the virtual machine. Throws an exception if it is already running or
   # cannot be started. If the `headless` argument is `false` (the default) then
   # the VM will be started in GUI mode.
-  start: (headless=false) -> @ensureNotMissing().then => @ensureNotRunning().then =>
-    deferred = Q.defer()
-    type = if headless then 'headless' else 'gui'
-    @vbm 'startvm', ['--type', type], (err, stdout, stderr) =>
-      return deferred.reject err if err?
-      deferred.resolve true
-    deferred.promise.then => @waitForRunning()
+  start: (headless=false) -> @ensureNotMissing().then =>
+    @ensureNotRunning().then =>
+      deferred = Q.defer()
+      type = if headless then 'headless' else 'gui'
+      @vbm 'startvm', ['--type', type], (err, stdout, stderr) =>
+        return deferred.reject err if err?
+        deferred.resolve true
+      deferred.promise.then => @waitForRunning()
 
-  # Stop the virtual machine. Throws an exception if it is not running. If the 
+  # Stop the virtual machine. Throws an exception if it is not running. If the
   # `save` argument is true (the default) then the VM state is saved. Otherwise,
   # the VM is powered off immediately which may result in data loss.
   stop: (save=true) -> @ensureNotMissing().then => @ensureRunning().then =>
@@ -135,7 +146,7 @@ class IEVM
       deferred.resolve true
     deferred.promise.then => @waitForNotRunning()
 
-  # Gracefully restart the virtual machine by calling `shutdown.exe`. Throws an 
+  # Gracefully restart the virtual machine by calling `shutdown.exe`. Throws an
   # exception if it is not running.
   restart: -> @ensureNotMissing().then => @ensureRunning().then =>
     @exec('shutdown.exe', '/r', '/t', '00').then =>
@@ -143,15 +154,16 @@ class IEVM
       # TODO: Bullshit Vista pops up the activation thing.
       @waitForNoGuestControl().then => @waitForGuestControl()
 
-  # Open a URL in IE within the virtual machine. Throws an exception if it is 
+  # Open a URL in IE within the virtual machine. Throws an exception if it is
   # not running.
   open: (url) -> @ensureNotMissing().then => @ensureRunning().then =>
-    @exec 'cmd.exe', '/c', 'start', 'C:\\Program Files\\Internet Explorer\\iexplore.exe', url
+    @exec 'cmd.exe', '/c', 'start',
+      'C:\\Program Files\\Internet Explorer\\iexplore.exe', url
 
   rearm: (delay=30000) -> @ensureNotMissing().then => @ensureRunning().then =>
     @debug "rearm"
     @rearmsLeft().then (rearmsLeft) =>
-      throw "no rearms left" unless rearmsLeft > 0
+      throw new Error "no rearms left" unless rearmsLeft > 0
       @exec('schtasks.exe', '/run', '/tn', 'rearm').then =>
         @meta().then (meta) =>
           meta.rearms = (meta.rearms ? []).concat (new Date).getTime()
@@ -169,42 +181,38 @@ class IEVM
     deferred.promise
 
   # Install the VM.
-  install: (force=false) -> @ensureMissing().then =>
+  install: -> @ensureMissing().then =>
     deferred = Q.defer()
-    child_process.exec @constructor.ievms, env: @ievmsEnv(), (err, stdout, stderr) =>
-      return deferred.reject err if err?
-      deferred.resolve true
+    @debug "install #{@constructor.ievms}"
+    child_process.exec @constructor.ievms, env: @ievmsEnv(),
+      (err, stdout, stderr) =>
+        return deferred.reject err if err?
+        deferred.resolve true
     deferred.promise
 
-  reinstall: (force=false) -> @uninstall().then => @install()
+  reinstall: -> @uninstall().then => @install()
 
   # Clean the VM.
-  clean: (force=false) ->
-    @debug "clean"
-    @missing().then (missing) =>
-      throw "not installed" unless !missing or force
-      return Q.fcall(-> true) if missing and force
-      @running().then (running) =>
-        throw "running" unless !running or force
-        @stop(false, true).then =>
-          deferred = Q.defer()
-          @vbm 'snapshot', ['restore', 'clean'], (err, stdout, stderr) =>
-            return deferred.reject err if err?
-            deferred.resolve true
-          deferred.promise
+  clean: (force=false) -> @ensureNotMissing().then =>
+    @ensureNotRunning().then =>
+      deferred = Q.defer()
+      @vbm 'snapshot', ['restore', 'clean'], (err, stdout, stderr) =>
+        return deferred.reject err if err?
+        deferred.resolve true
+      deferred.promise
 
   # Delete the archive.
   unarchive: ->
     @debug "unarchive"
     @archived().then (archived) =>
-      throw "not archived" unless archived
+      throw new Error "not archived" unless archived
       Q.nfcall fs.unlink path.join @constructor.home, @archive()
 
   # Delete the ova.
   unova: ->
     @debug "unova"
     @ovaed().then (ovaed) =>
-      throw "not ovaed" unless ovaed
+      throw new Error "not ovaed" unless ovaed
       Q.nfcall fs.unlink path.join @constructor.home, @ova()
 
   # Execute a command in the VM.
@@ -213,7 +221,7 @@ class IEVM
       deferred = Q.defer()
       pass = if @os isnt 'WinXP' then ['--password', 'Passw0rd!'] else []
       args = [
-        'exec', '--image', cmd, 
+        'exec', '--image', cmd,
         '--wait-exit',
         '--username', 'IEUser', pass...,
         '--', args...
@@ -247,7 +255,8 @@ class IEVM
     "#{@name}.ova"
 
   # Generate the full URL to the modern.ie archive.
-  url: -> "http://virtualization.modern.ie/vhd/IEKitV1_Final/VirtualBox/OSX/#{@archive()}"
+  url: -> "http://virtualization.modern.ie/vhd/IEKitV1_Final/VirtualBox/OSX/" +
+    @archive()
 
   # Build the command string for a given `VBoxManage` command and arguments.
   vbm: (cmd, args, callback) ->
@@ -279,7 +288,8 @@ class IEVM
     deferred = Q.defer()
     @vbm 'showvminfo', ['--machinereadable'], (err, stdout, stderr) =>
       @debug "info: done (error: #{err?})"
-      return deferred.resolve VMState: 'missing' if stderr.match /VBOX_E_OBJECT_NOT_FOUND/
+      if stderr.match /VBOX_E_OBJECT_NOT_FOUND/
+        return deferred.resolve VMState: 'missing'
       return deferred.reject err if err?
       deferred.resolve @parse stdout
     deferred.promise
@@ -336,13 +346,14 @@ class IEVM
 
   # Promise the UUID of the VM's hdd.
   hddUuid: -> @info().then (info) =>
-    info['"SATA Controller-ImageUUID-0-0"'] ? info['"IDE Controller-ImageUUID-0-0"']
+    info['"SATA Controller-ImageUUID-0-0"'] ?
+      info['"IDE Controller-ImageUUID-0-0"']
 
   # Promise an object representing the base hdd.
-  hdd: -> @constructor.hdds().then (hdds) => @hddUuid().then (hddUuid) =>
-    return null unless hddUuid? and hdds[hddUuid]
-    hddUuid = hdds[hddUuid]['Parent UUID'] while hdds[hddUuid]['Parent UUID'] isnt 'base'
-    hdds[hddUuid]
+  hdd: -> @constructor.hdds().then (hdds) => @hddUuid().then (uid) =>
+    return null unless uid? and hdds[uid]
+    uid = hdds[uid]['Parent UUID'] while hdds[uid]['Parent UUID'] isnt 'base'
+    hdds[uid]
 
   # Promise an `fs.stat` object for the VM's base hdd file.
   hddStat: -> @hdd().then (hdd) => Q.nfcall fs.stat, hdd.Location
@@ -361,14 +372,15 @@ class IEVM
         # Add ninety days to the install date from metadata.
         new Date meta.installed + ninetyDays
       else
-        # Fall back to the original date when the hdd was last modified (created).
+        # Fall back to the original date when the hdd was last modified.
         @hddStat().then (stat) => new Date stat.mtime.getTime() + ninetyDays
 
   # Promise an array of rearm dates or empty array if none exist.
   rearms: -> @meta().then (meta) => meta.rearms ? []
 
   # Promise the number of rearms left for the VM.
-  rearmsLeft: -> @rearms().then (rearms) => @constructor.rearms[@os] - rearms.length
+  rearmsLeft: -> @rearms().then (rearms) =>
+    @constructor.rearms[@os] - rearms.length
 
   # Promise a boolean indicating whether the VM is missing.
   missing: -> @status().then (status) => status is @constructor.status.MISSING
@@ -399,14 +411,14 @@ class IEVM
     @debug "waitForStatus: #{statusNames}"
     return null if deferred.promise.isRejected()
     @status().then (status) =>
-      @debug "waitForStatus: #{@constructor.statusName status} in #{statusNames}"
       return deferred.resolve status if status in statuses
       Q.delay(delay).then => @_waitForStatus statuses, deferred, delay
 
   waitForRunning: (timeout=60000, delay) ->
     @debug "waitForRunning"
     deferred = Q.defer()
-    @_waitForStatus @constructor.status.RUNNING, deferred, delay
+    @_waitForStatus(@constructor.status.RUNNING, deferred, delay).fail (err) ->
+      deferred.reject err
     deferred.promise.timeout timeout
 
   waitForNotRunning: (timeout=60000, delay) ->
@@ -425,7 +437,7 @@ class IEVM
     @info().then (info) =>
       runlevel = info.GuestAdditionsRunLevel
       @debug "waitForGuestControl: runlevel #{runlevel}"
-      return deferred.resolve true if runlevel? and parseInt(runlevel) > 2        
+      return deferred.resolve true if runlevel? and parseInt(runlevel) > 2
       Q.delay(delay).then => @_waitForGuestControl deferred, delay
 
   waitForGuestControl: (timeout=60000, delay) ->

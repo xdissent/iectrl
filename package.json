@@ -4,7 +4,7 @@
   "description": "Command line utility for ievms",
   "main": "index.js",
   "scripts": {
-    "test": "mocha",
+    "test": "coffeelint -r src && mocha",
     "prepublish": "coffee -cbo lib src"
   },
   "repository": {
@@ -35,7 +35,8 @@
     "coffee-script": "~1.6.3",
     "groc": "~0.4.0",
     "mocha": "~1.11.0",
-    "should": "~1.2.2"
+    "should": "~1.2.2",
+    "coffeelint": "~0.5.6"
   },
   "bin": {
     "iectrl": "./bin/iectrl"
