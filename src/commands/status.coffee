@@ -50,7 +50,6 @@ formatStatus = (vm) -> Q.all(vm[attr]() for attr in statusAttrs)
     ovaed = formatOvaed ovaed
     archived = formatArchived archived
     expires = formatExpires expires
-    console.log rearmsLeft
     rearms = if statusName is 'MISSING' then '' else formatRearms rearmsLeft
     columns vm.name, status, ovaed, archived, expires, rearms
 
