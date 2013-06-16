@@ -33,8 +33,8 @@ dsl =
       if ret then vals else vms
 
   autoStart: (headless) ->
-    addDsl @then (vms) => @where('!running')
-      .all((vm) -> vm.start headless).then -> vms
+    auto = (vm) -> vm.start(headless).then -> Q.delay(5000).then ->
+    addDsl @then (vms) => @where('!running').all(auto).then -> vms
 
   maybeAutoStart: (maybe, headless) -> if maybe then @autoStart headless else @
 
