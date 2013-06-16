@@ -206,14 +206,14 @@ class IEVM
     @debug "unarchive"
     @archived().then (archived) =>
       throw new Error "not archived" unless archived
-      Q.nfcall fs.unlink path.join @constructor.home, @archive()
+      Q.nfcall fs.unlink, path.join @constructor.home, @archive()
 
   # Delete the ova.
   unova: ->
     @debug "unova"
     @ovaed().then (ovaed) =>
       throw new Error "not ovaed" unless ovaed
-      Q.nfcall fs.unlink path.join @constructor.home, @ova()
+      Q.nfcall fs.unlink, path.join @constructor.home, @ova()
 
   # Execute a command in the VM.
   exec: (cmd, args...) -> @ensureNotMissing().then => @ensureRunning().then =>
