@@ -50,10 +50,25 @@ class IEVM
   @home: path.join process.env.HOME, '.ievms'
 
   # The command used to install virtual machines via ievms.
-  @ievms: 'curl -s https://raw.github.com/xdissent/ievms/master/ievms.sh | bash'
-  # @ievms: 'cd ~/Code/ievms && cat ievms.sh | bash'
+  @ievmsCmd: 'curl -s https://raw.github.com/xdissent/ievms/master/ievms.sh | bash'
+  # @ievmsCmd: 'cd ~/Code/ievms && cat ievms.sh | bash'
 
   # ## Class Methods
+
+  # Run ievms shell script with a given environment. A debug function may be 
+  # passed (like `console.log`) which will be called for each line of ievms
+  # output.
+  @ievms: (env, dbg=debug) ->
+    deferred = Q.defer()
+    cmd = ['bash', '-c', @ievmsCmd]
+    dbg "ievms: #{cmd.join ' '}"
+    ievms = child_process.spawn cmd.shift(), cmd, env: env
+    ievms.on 'error', (err) -> deferred.reject err
+    ievms.on 'exit', -> deferred.resolve true
+    ievms.stdout.on 'readable', ->
+      out = ievms.stdout.read()
+      dbg "ievms: #{l}" for l in out.toString().trim().split "\n" if out?
+    deferred.promise
 
   # Build a list with an IEVM instance of each available type.
   @all: -> new @ n for n in @names
@@ -139,6 +154,7 @@ class IEVM
   # `save` argument is true (the default) then the VM state is saved. Otherwise,
   # the VM is powered off immediately which may result in data loss.
   stop: (save=true) -> @ensureNotMissing().then => @ensureRunning().then =>
+    @debug "stop: #{if save then 'save' else 'poweroff'}"
     deferred = Q.defer()
     cmd = if save then 'savestate' else 'poweroff'
     @vbm 'controlvm', [cmd], (err, stdout, stderr) =>
@@ -149,6 +165,7 @@ class IEVM
   # Gracefully restart the virtual machine by calling `shutdown.exe`. Throws an
   # exception if it is not running.
   restart: -> @ensureNotMissing().then => @ensureRunning().then =>
+    @debug 'restart'
     @exec('shutdown.exe', '/r', '/t', '00').then =>
       # TODO: Should return before GC comes back online but timing is hard.
       # TODO: Bullshit Vista pops up the activation thing.
@@ -157,11 +174,12 @@ class IEVM
   # Open a URL in IE within the virtual machine. Throws an exception if it is
   # not running.
   open: (url) -> @ensureNotMissing().then => @ensureRunning().then =>
+    @debug "open: #{url}"
     @exec 'cmd.exe', '/c', 'start',
       'C:\\Program Files\\Internet Explorer\\iexplore.exe', url
 
   rearm: (delay=30000) -> @ensureNotMissing().then => @ensureRunning().then =>
-    @debug "rearm"
+    @debug 'rearm'
     @rearmsLeft().then (rearmsLeft) =>
       throw new Error "no rearms left" unless rearmsLeft > 0
       @exec('schtasks.exe', '/run', '/tn', 'rearm').then =>
@@ -173,7 +191,7 @@ class IEVM
 
   # Uninstall the VM.
   uninstall: -> @ensureNotMissing().then => @ensureNotRunning().then =>
-    @debug "uninstall"
+    @debug 'uninstall'
     deferred = Q.defer()
     @vbm 'unregistervm', ['--delete'], (err, stdout, stderr) =>
       return deferred.reject err if err?
@@ -182,13 +200,8 @@ class IEVM
 
   # Install the VM.
   install: -> @ensureMissing().then =>
-    deferred = Q.defer()
-    @debug "install #{@constructor.ievms}"
-    child_process.exec @constructor.ievms, env: @ievmsEnv(),
-      (err, stdout, stderr) =>
-        return deferred.reject err if err?
-        deferred.resolve true
-    deferred.promise
+    @debug 'install'
+    @constructor.ievms @ievmsEnv(), @debug.bind @
 
   reinstall: -> @uninstall().then => @install()
 
@@ -203,14 +216,14 @@ class IEVM
 
   # Delete the archive.
   unarchive: ->
-    @debug "unarchive"
+    @debug 'unarchive'
     @archived().then (archived) =>
       throw new Error "not archived" unless archived
       Q.nfcall fs.unlink, path.join @constructor.home, @archive()
 
   # Delete the ova.
   unova: ->
-    @debug "unova"
+    @debug 'unova'
     @ovaed().then (ovaed) =>
       throw new Error "not ovaed" unless ovaed
       Q.nfcall fs.unlink, path.join @constructor.home, @ova()
@@ -218,6 +231,7 @@ class IEVM
   # Execute a command in the VM.
   exec: (cmd, args...) -> @ensureNotMissing().then => @ensureRunning().then =>
     @waitForGuestControl().then =>
+      @debug "exec: #{cmd} #{args.join ' '}"
       deferred = Q.defer()
       pass = if @os isnt 'WinXP' then ['--password', 'Passw0rd!'] else []
       args = [
@@ -227,7 +241,6 @@ class IEVM
         '--', args...
       ]
       @vbm 'guestcontrol', args, (err, stdout, stderr) =>
-        @debug "exec: #{cmd} (error: #{err?})"
         return deferred.reject err if err?
         deferred.resolve true
       deferred.promise
@@ -263,15 +276,13 @@ class IEVM
     return @queueVbm arguments... if @_vbm
     @_vbm = true
     command = @constructor.vbm(cmd, [@name].concat args)
-    @debug "vbm #{command}"
+    @debug "vbm: #{command}"
     child_process.exec command, =>
-      @debug "vbm callback #{command}"
       callback arguments...
       @_vbm = false
       @vbm @vbmQueue.shift()... if @vbmQueue? and @vbmQueue.length > 0
 
   queueVbm: ->
-    @debug "queueVbm"
     @vbmQueue ?= []
     @vbmQueue.push arguments
 
@@ -287,7 +298,6 @@ class IEVM
   info: ->
     deferred = Q.defer()
     @vbm 'showvminfo', ['--machinereadable'], (err, stdout, stderr) =>
-      @debug "info: done (error: #{err?})"
       if stderr.match /VBOX_E_OBJECT_NOT_FOUND/
         return deferred.resolve VMState: 'missing'
       return deferred.reject err if err?
@@ -408,21 +418,21 @@ class IEVM
   _waitForStatus: (statuses, deferred, delay=1000) ->
     statuses = [].concat statuses
     statusNames = (@constructor.statusName s for s in statuses).join ', '
-    @debug "waitForStatus: #{statusNames}"
+    @debug "_waitForStatus: #{statusNames}"
     return null if deferred.promise.isRejected()
     @status().then (status) =>
       return deferred.resolve status if status in statuses
       Q.delay(delay).then => @_waitForStatus statuses, deferred, delay
 
   waitForRunning: (timeout=60000, delay) ->
-    @debug "waitForRunning"
+    @debug 'waitForRunning'
     deferred = Q.defer()
     @_waitForStatus(@constructor.status.RUNNING, deferred, delay).fail (err) ->
       deferred.reject err
     deferred.promise.timeout timeout
 
   waitForNotRunning: (timeout=60000, delay) ->
-    @debug "waitForNotRunning"
+    @debug 'waitForNotRunning'
     deferred = Q.defer()
     @_waitForStatus([
       @constructor.status.POWEROFF
@@ -432,11 +442,11 @@ class IEVM
     deferred.promise.timeout timeout
 
   _waitForGuestControl: (deferred, delay=1000) ->
-    @debug "waitForGuestControl"
+    @debug '_waitForGuestControl'
     return null if deferred.promise.isRejected()
     @info().then (info) =>
       runlevel = info.GuestAdditionsRunLevel
-      @debug "waitForGuestControl: runlevel #{runlevel}"
+      @debug "_waitForGuestControl: runlevel #{runlevel}"
       return deferred.resolve true if runlevel? and parseInt(runlevel) > 2
       Q.delay(delay).then => @_waitForGuestControl deferred, delay
 
@@ -447,7 +457,7 @@ class IEVM
       deferred.promise.timeout timeout
 
   _waitForNoGuestControl: (deferred, delay=1000) ->
-    @debug "waitForNoGuestControl"
+    @debug "_waitForNoGuestControl"
     return null if deferred.promise.isRejected()
     @info().then (info) =>
       runlevel = info.GuestAdditionsRunLevel
