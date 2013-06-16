@@ -119,7 +119,7 @@ class IEVM
   start: (headless=false) -> @ensureNotMissing().then => @ensureNotRunning().then =>
     deferred = Q.defer()
     type = if headless then 'headless' else 'gui'
-    child_process.exec @vbm('startvm', ['--type', type]), (err, stdout, stderr) =>
+    @vbm 'startvm', ['--type', type], (err, stdout, stderr) =>
       return deferred.reject err if err?
       deferred.resolve true
     deferred.promise.then => @waitForRunning()
@@ -130,7 +130,7 @@ class IEVM
   stop: (save=true) -> @ensureNotMissing().then => @ensureRunning().then =>
     deferred = Q.defer()
     cmd = if save then 'savestate' else 'poweroff'
-    child_process.exec @vbm('controlvm', [cmd]), (err, stdout, stderr) =>
+    @vbm 'controlvm', [cmd], (err, stdout, stderr) =>
       return deferred.reject err if err?
       deferred.resolve true
     deferred.promise.then => @waitForNotRunning()
@@ -163,7 +163,7 @@ class IEVM
   uninstall: -> @ensureNotMissing().then => @ensureNotRunning().then =>
     @debug "uninstall"
     deferred = Q.defer()
-    child_process.exec @vbm('unregistervm', ['--delete']), (err, stdout, stderr) =>
+    @vbm 'unregistervm', ['--delete'], (err, stdout, stderr) =>
       return deferred.reject err if err?
       deferred.resolve true
     deferred.promise
@@ -188,7 +188,7 @@ class IEVM
         throw "running" unless !running or force
         @stop(false, true).then =>
           deferred = Q.defer()
-          child_process.exec @vbm('snapshot', ['restore', 'clean']), (err, stdout, stderr) =>
+          @vbm 'snapshot', ['restore', 'clean'], (err, stdout, stderr) =>
             return deferred.reject err if err?
             deferred.resolve true
           deferred.promise
@@ -218,9 +218,7 @@ class IEVM
         '--username', 'IEUser', pass...,
         '--', args...
       ]
-      gcCmd = @vbm 'guestcontrol', args
-      @debug "exec: #{gcCmd}"
-      child_process.exec gcCmd, (err, stdout, stderr) =>
+      @vbm 'guestcontrol', args, (err, stdout, stderr) =>
         @debug "exec: #{cmd} (error: #{err?})"
         return deferred.reject err if err?
         deferred.resolve true
@@ -252,7 +250,20 @@ class IEVM
   url: -> "http://virtualization.modern.ie/vhd/IEKitV1_Final/VirtualBox/OSX/#{@archive()}"
 
   # Build the command string for a given `VBoxManage` command and arguments.
-  vbm: (cmd, args=[]) -> @constructor.vbm cmd, [@name].concat args
+  vbm: (cmd, args, callback) ->
+    @debug "vbm"
+    return @queueVbm arguments... if @_vbm
+    @_vbm = true
+    child_process.exec @constructor.vbm(cmd, [@name].concat args), =>
+      @debug "vbm callback"
+      callback arguments...
+      @_vbm = false
+      @vbm @vbmQueue.shift()... if @vbmQueue? and @vbmQueue.length > 0
+
+  queueVbm: ->
+    @debug "queueVbm"
+    @vbmQueue ?= []
+    @vbmQueue.push arguments
 
   # Parse the "machinereadable" `VBoxManage` output format.
   parse: (s) ->
@@ -265,9 +276,7 @@ class IEVM
   # Promise the parsed vm info as returned by `VBoxManage showvminfo`.
   info: ->
     deferred = Q.defer()
-    cmd = @vbm 'showvminfo', ['--machinereadable']
-    @debug "info: #{cmd}"
-    child_process.exec cmd, (err, stdout, stderr) =>
+    @vbm 'showvminfo', ['--machinereadable'], (err, stdout, stderr) =>
       @debug "info: done (error: #{err?})"
       return deferred.resolve VMState: 'missing' if stderr.match /VBOX_E_OBJECT_NOT_FOUND/
       return deferred.reject err if err?
@@ -304,7 +313,7 @@ class IEVM
   setMeta: (data) ->
     deferred = Q.defer()
     data = JSON.stringify data
-    child_process.exec @vbm('setextradata', ['ievms', data]), (err, stdout, stderr) =>
+    @vbm 'setextradata', ['ievms', data], (err, stdout, stderr) =>
       return deferred.reject err if err?
       deferred.resolve true
     deferred.promise
@@ -312,7 +321,7 @@ class IEVM
   # Promise to get the VM metadata.
   getMeta: ->
     deferred = Q.defer()
-    child_process.exec @vbm('getextradata', ['ievms']), (err, stdout, stderr) =>
+    @vbm 'getextradata', ['ievms'], (err, stdout, stderr) =>
       return deferred.resolve {} if err?
       try
         data = JSON.parse stdout.replace 'Value: ', ''
