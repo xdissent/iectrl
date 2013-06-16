@@ -1,4 +1,3 @@
-Q = require 'q'
 cli = require '../cli'
 
 module.exports = (program) -> program
