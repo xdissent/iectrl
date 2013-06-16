@@ -9,8 +9,11 @@ module.exports = (program) -> program
       # Pull out XP vms because they share an OVA and must be
       # installed sequentially.
       xps = (vm for vm in vms when vm.os is 'WinXP')
-      rest = (vm for vm in vms when vm.os isnt 'WinXP')
-      promise = Q.fcall ->
+      installXp = Q.fcall ->
       for xp in xps
-        do (xp) -> promise = promise.then -> xp.install()
-      Q.all promise, cli.dsl(rest).all (vm) -> vm.install()
+        do (xp) -> installXp = installXp.then -> xp.install()
+
+      rest = (vm for vm in vms when vm.os isnt 'WinXP')
+      installRest = cli.dsl(rest).all (vm) -> vm.install()
+
+      Q.all [installXp, installRest]

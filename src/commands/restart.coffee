@@ -10,5 +10,7 @@ module.exports = (program) -> program
     cli.fail cli.find(names, '!missing')
       .maybeWhere(!command.start, 'running').found()
       .then (vms) ->
-        Q.all cli.dsl(vms).where('running').all((vm) -> vm.restart()),
-          cli.dsl(vms).where('!running').all (vm) -> vm.start command.headless
+        Q.all [
+          cli.dsl(vms).where('running').all (vm) -> vm.restart()
+          cli.dsl(vms).where('!running').al (vm) -> vm.start command.headless
+        ]
