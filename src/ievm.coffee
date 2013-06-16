@@ -251,11 +251,12 @@ class IEVM
 
   # Build the command string for a given `VBoxManage` command and arguments.
   vbm: (cmd, args, callback) ->
-    @debug "vbm"
     return @queueVbm arguments... if @_vbm
     @_vbm = true
-    child_process.exec @constructor.vbm(cmd, [@name].concat args), =>
-      @debug "vbm callback"
+    command = @constructor.vbm(cmd, [@name].concat args)
+    @debug "vbm #{command}"
+    child_process.exec command, =>
+      @debug "vbm callback #{command}"
       callback arguments...
       @_vbm = false
       @vbm @vbmQueue.shift()... if @vbmQueue? and @vbmQueue.length > 0
@@ -411,11 +412,11 @@ class IEVM
   waitForNotRunning: (timeout=60000, delay) ->
     @debug "waitForNotRunning"
     deferred = Q.defer()
-    @_waitForStatus [
+    @_waitForStatus([
       @constructor.status.POWEROFF
       @constructor.status.PAUSED
       @constructor.status.SAVED
-    ], deferred, delay
+    ], deferred, delay).fail (err) -> deferred.reject err
     deferred.promise.timeout timeout
 
   _waitForGuestControl: (deferred, delay=1000) ->
@@ -430,7 +431,7 @@ class IEVM
   waitForGuestControl: (timeout=60000, delay) ->
     @waitForRunning().then =>
       deferred = Q.defer()
-      @_waitForGuestControl deferred, delay
+      @_waitForGuestControl(deferred, delay).fail (err) -> deferred.reject err
       deferred.promise.timeout timeout
 
   _waitForNoGuestControl: (deferred, delay=1000) ->
@@ -444,7 +445,7 @@ class IEVM
 
   waitForNoGuestControl: (timeout=60000, delay) ->
     deferred = Q.defer()
-    @_waitForNoGuestControl deferred, delay
+    @_waitForNoGuestControl(deferred, delay).fail (err) -> deferred.reject err
     deferred.promise.timeout timeout
 
 module.exports = IEVM

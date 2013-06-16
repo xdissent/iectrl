@@ -14,7 +14,7 @@ statusAttrs = [
 formatStatusName = (status) ->
   color = switch status
     when 'MISSING' then 'red'
-    when 'RUNNNG' then 'green'
+    when 'RUNNING' then 'green'
     else 'yellow'
   status[color]
 
@@ -31,7 +31,8 @@ formatRearms = (rearmsLeft) ->
     when 0 then 'red'
     when 1 then 'yellow'
     else 'green'
-  "#{rearmsLeft[color]} rearms left"
+  rearms = "#{rearmsLeft}"[color]
+  "#{rearms} rearms left"
 
 formatFile = (name, present) ->
   msg = if present then 'present'.green else 'missing'.red
@@ -49,7 +50,8 @@ formatStatus = (vm) -> Q.all(vm[attr]() for attr in statusAttrs)
     ovaed = formatOvaed ovaed
     archived = formatArchived archived
     expires = formatExpires expires
-    rearms = formatRearms if statusName is 'MISSING' then null else rearmsLeft
+    console.log rearmsLeft
+    rearms = if statusName is 'MISSING' then '' else formatRearms rearmsLeft
     columns vm.name, status, ovaed, archived, expires, rearms
 
 module.exports = (program) -> program
@@ -57,8 +59,8 @@ module.exports = (program) -> program
   .description('report the status of one or more vms')
   .option('-m, --missing', 'show VMs that are not installed')
   .action (names, command) ->
-    cli.catchFail cli.findVms(names)
-      .then (vms) -> cli.maybeFilter(!command.missing, 'missing', vms)
-      .then (vms) -> cli.ensureFound(vms, 'no matching vms found')
-      .then (vms) -> Q.all(formatStatus vm for vm in vms)
+    cli.fail cli.find(names)
+      .maybeWhere(!command.missing, '!missing')
+      .found()
+      .all(formatStatus, true)
       .then (statuses) -> console.log status for status in statuses
