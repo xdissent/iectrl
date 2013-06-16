@@ -2,9 +2,11 @@ cli = require '../cli'
 
 module.exports = (program) -> program
   .command('shrink [names]')
-  .description('shrink disk usage for virtual machines if archive is present')
+  .description('shrink disk usage for virtual machines')
+  .option('-f, --force', 'force if archive not present (must be redownloaded)')
   .action (names, command) ->
-    cli.fail cli.find(names, 'ovaed', 'archived').found()
+    cli.fail cli.find(names, 'ovaed').maybeWhere(!command.force, 'archived')
+      .found()
       .then (vms) ->
         # Pull out XP vms because they share an OVA and only one should try
         # to delete it.
