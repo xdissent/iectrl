@@ -55,7 +55,7 @@ class IEVM
 
   # ## Class Methods
 
-  # Run ievms shell script with a given environment. A debug function may be 
+  # Run ievms shell script with a given environment. A debug function may be
   # passed (like `console.log`) which will be called for each line of ievms
   # output.
   @ievms: (env, dbg=debug) ->
@@ -177,6 +177,10 @@ class IEVM
     @debug "open: #{url}"
     @exec 'cmd.exe', '/c', 'start',
       'C:\\Program Files\\Internet Explorer\\iexplore.exe', url
+
+  close: -> @ensureRunning().then =>
+    @debug 'close'
+    @exec 'taskkill.exe', '/f', '/im', 'iexplore.exe'
 
   rearm: (delay=30000) -> @ensureNotMissing().then => @ensureRunning().then =>
     @debug 'rearm'
