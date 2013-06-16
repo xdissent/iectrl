@@ -4,6 +4,7 @@ pkg = require '../package.json'
 
 subcommands = [
   'clean'
+  'close'
   'install'
   'nuke'
   'open'
