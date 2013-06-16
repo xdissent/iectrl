@@ -22,5 +22,5 @@ require("./commands/#{s}") program for s in subcommands
 program._parse = program.parse
 program.parse = ->
   program._parse arguments...
-  program.help() unless program.args.length > 0
+  program.help() if program.rawArgs.length < 3
 module.exports = program
