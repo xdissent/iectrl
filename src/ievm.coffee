@@ -50,8 +50,9 @@ class IEVM
   @home: path.join process.env.HOME, '.ievms'
 
   # The command used to install virtual machines via ievms.
-  @ievmsCmd: 'curl -s https://raw.github.com/xdissent/ievms/master/ievms.sh | bash'
   # @ievmsCmd: 'cd ~/Code/ievms && cat ievms.sh | bash'
+  @ievmsCmd:
+    'curl -s https://raw.github.com/xdissent/ievms/master/ievms.sh | bash'
 
   # ## Class Methods
 
@@ -178,9 +179,15 @@ class IEVM
     @exec 'cmd.exe', '/c', 'start',
       'C:\\Program Files\\Internet Explorer\\iexplore.exe', url
 
-  close: -> @ensureRunning().then =>
+  # Close running IE windows in the virtual machine, failing silently if IE is
+  # not currently running.
+  close: -> @ensureNotMissing().then => @ensureRunning().then =>
     @debug 'close'
-    @exec 'taskkill.exe', '/f', '/im', 'iexplore.exe'
+    deferred = Q.defer()
+    success = -> deferred.resolve true
+    failure = -> deferred.resolve false
+    @exec('taskkill.exe', '/f', '/im', 'iexplore.exe').then success, failure
+    deferred.promise
 
   rearm: (delay=30000) -> @ensureNotMissing().then => @ensureRunning().then =>
     @debug 'rearm'
