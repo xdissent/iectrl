@@ -294,14 +294,21 @@ class IEVM
       obj[pieces.shift()] = pieces.join('=').replace(/^"/, '').replace /"$/, ''
     obj
 
-  # Promise the parsed vm info as returned by `VBoxManage showvminfo`.
-  info: ->
-    deferred = Q.defer()
+  _info: (deferred, retries=3, delay=250) ->
     @vbm 'showvminfo', ['--machinereadable'], (err, stdout, stderr) =>
       if stderr.match /VBOX_E_OBJECT_NOT_FOUND/
         return deferred.resolve VMState: 'missing'
+      if retries > 0 and stderr.match /E_ACCESSDENIED/
+        @debug "info: retrying (#{retries - 1} retries left)"
+        return Q.delay(250).then(=> @_info deferred, retries - 1, delay)
+          .fail (err) -> deferred.reject err
       return deferred.reject err if err?
       deferred.resolve @parse stdout
+
+  # Promise the parsed vm info as returned by `VBoxManage showvminfo`.
+  info: ->
+    deferred = Q.defer()
+    @_info deferred
     deferred.promise
 
   # Promise a value from `IEVM.status` representing the vm's current status.
