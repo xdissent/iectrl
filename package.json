@@ -38,6 +38,6 @@
     "should": "~1.2.2"
   },
   "bin": {
-    "iectrl": "./lib/index.js"
+    "iectrl": "./bin/iectrl"
   }
 }
