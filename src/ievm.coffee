@@ -9,7 +9,7 @@ Q = require 'q'
 url = require 'url'
 http = require 'http'
 child_process = require 'child_process'
-debug = require('debug') 'ievms:IEVM'
+debug = require 'debug'
 
 class IEVM
   # ## Class Properties
@@ -58,16 +58,16 @@ class IEVM
   # Run ievms shell script with a given environment. A debug function may be
   # passed (like `console.log`) which will be called for each line of ievms
   # output.
-  @ievms: (env, dbg=debug) ->
+  @ievms: (env, debug) ->
     deferred = Q.defer()
     cmd = ['bash', '-c', @ievmsCmd]
-    dbg "ievms: #{cmd.join ' '}"
+    debug "ievms: #{cmd.join ' '}" if debug?
     ievms = child_process.spawn cmd.shift(), cmd, env: env
     ievms.on 'error', (err) -> deferred.reject err
     ievms.on 'exit', -> deferred.resolve true
-    ievms.stdout.on 'readable', ->
+    if debug? then ievms.stdout.on 'readable', ->
       out = ievms.stdout.read()
-      dbg "ievms: #{l}" for l in out.toString().trim().split "\n" if out?
+      debug "ievms: #{l}" for l in out.toString().trim().split "\n" if out?
     deferred.promise
 
   # Build a list with an IEVM instance of each available type.
@@ -257,7 +257,9 @@ class IEVM
       deferred.resolve true
     deferred.promise
 
-  debug: (msg) -> debug "#{@name}: #{msg}"
+  debug: (msg) ->
+    @_debug ?= debug "iectrl:#{@name}"
+    @_debug msg
 
   # Build an environment hash to pass to ievms for installation.
   ievmsEnv: ->
