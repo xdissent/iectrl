@@ -25,4 +25,7 @@ program._parse = program.parse
 program.parse = ->
   program._parse arguments...
   program.help() if program.rawArgs.length < 3
+
 module.exports = program
+
+module.exports.IEVM = require './ievm'
