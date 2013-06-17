@@ -12,5 +12,5 @@ module.exports = (program) -> program
       .then (vms) ->
         Q.all [
           cli.dsl(vms).where('running').all (vm) -> vm.restart()
-          cli.dsl(vms).where('!running').al (vm) -> vm.start command.headless
+          cli.dsl(vms).where('!running').all (vm) -> vm.start command.headless
         ]
