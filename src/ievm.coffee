@@ -12,6 +12,7 @@ child_process = require 'child_process'
 debug = require 'debug'
 
 class IEVM
+
   # ## Class Properties
 
   # A list of all available IE versions.
@@ -39,7 +40,7 @@ class IEVM
     PAUSED: 2
     SAVED: 3
 
-  # A list of initial rearms available per OS.
+  # A list of initial rearms available per OS. Hilarious.
   @rearms:
     WinXP: 0
     Vista: 0
@@ -47,7 +48,7 @@ class IEVM
     Win8: 0
 
   # The ievms home (`INSTALL_PATH` in ievms parlance).
-  @home: path.join process.env.HOME, '.ievms'
+  @ievmsHome: path.join process.env.HOME, '.ievms'
 
   # The command used to install virtual machines via ievms.
   # @ievmsCmd: 'cd ~/Code/ievms && cat ievms.sh | bash'
@@ -58,7 +59,7 @@ class IEVM
 
   # Run ievms shell script with a given environment. A debug function may be
   # passed (like `console.log`) which will be called for each line of ievms
-  # output.
+  # output. Returns a promise for which will resolve when ievms is finished.
   @ievms: (env, debug) ->
     deferred = Q.defer()
     cmd = ['bash', '-c', @ievmsCmd]
@@ -71,14 +72,14 @@ class IEVM
       debug "ievms: #{l}" for l in out.toString().trim().split "\n" if out?
     deferred.promise
 
-  # Build a list with an IEVM instance of each available type.
+  # Build an array with one instance of each possible IEVM type.
   @all: -> new @ n for n in @names
 
-  # Build a list of all IEVM instances that match the given name, which may be
+  # Build an array of all IEVM instances that match the given name, which may be
   # a specific VM (`IE6 - WinXP`), an IE version number (`9` or `7`) or an OS
   # name (`WinXP` or `Vista`).
   @find: (name) ->
-    throw new Error "No name specified" unless name?
+    throw new Error 'No name specified' unless name?
     if typeof name isnt 'string' and typeof name isnt 'number'
       throw new Error "Invalid name: '#{name}'"
     return [new IEVM name] if name.match /^IE/
@@ -88,7 +89,8 @@ class IEVM
       throw new Error "Invalid name: '#{name}'"
     new IEVM n for n in @names when n.match "IE#{name}"
 
-  # Construct a `VBoxManage` command with arguments.
+  # Construct a `VBoxManage` command with arguments. Adds single quotes to all
+  # arguments for shell safety.
   @vbm: (cmd, args=[]) ->
     args = ("'#{a}'" for a in args).join ' '
     "VBoxManage #{cmd} #{args}"
@@ -112,12 +114,14 @@ class IEVM
       deferred.resolve @parseHdds stdout
     deferred.promise
 
-  # Fetch a status name for a given status value.
+  # Determine the status name for a given status value.
   @statusName: (status) -> (k for k, v of @status when v is status)[0]
 
   # ## Instance Methods
 
-  # Create a new IEVM object for a given ievms VM name. The name is validated
+  # ### Constructor
+
+  # Create a new IEVM instance for a given ievms VM name. The name is validated
   # against all supported ievms names. The IE version and OS are extracted from
   # the name and validated as well.
   constructor: (@name) ->
@@ -130,12 +134,21 @@ class IEVM
     @os = pieces.pop()
     throw new Error "Invalid OS: '#{@os}'" unless @os in @constructor.oses
 
+  # ### Validation Helpers
+
+  # Throw an exception if the virtual machine is missing (not installed).
   ensureMissing: ->
     @missing().then (missing) -> missing or throw new Error "not missing"
+
+  # Throw an exception if the virtual machine is *not* missing (is installed).
   ensureNotMissing: ->
     @missing().then (missing) -> !missing or throw new Error "missing"
+
+  # Throw an exception if the virtual machine is running.
   ensureRunning: ->
     @running().then (running) -> running or throw new Error "not running"
+
+  # Throw an exception if the virtual machine is *not* running (saved/off).
   ensureNotRunning: ->
     @running().then (running) -> !running or throw new Error "running"
 
@@ -229,15 +242,15 @@ class IEVM
   unarchive: ->
     @debug 'unarchive'
     @archived().then (archived) =>
-      throw new Error "not archived" unless archived
-      Q.nfcall fs.unlink, path.join @constructor.home, @archive()
+      throw new Error 'not archived' unless archived
+      Q.nfcall fs.unlink, @fullArchive()
 
   # Delete the ova.
   unova: ->
     @debug 'unova'
     @ovaed().then (ovaed) =>
-      throw new Error "not ovaed" unless ovaed
-      Q.nfcall fs.unlink, path.join @constructor.home, @ova()
+      throw new Error 'not ovaed' unless ovaed
+      Q.nfcall fs.unlink, fullOva()
 
   # Execute a command in the VM.
   exec: (cmd, args...) -> @ensureNotMissing().then => @ensureRunning().then =>
@@ -272,7 +285,7 @@ class IEVM
   ievmsEnv: ->
     IEVMS_VERSIONS: @version
     REUSE_XP: if @version in [7, 8] and @os is 'WinXP' then 'yes' else 'no'
-    INSTALL_PATH: @constructor.home
+    INSTALL_PATH: @constructor.ievmsHome
     HOME: process.env.HOME
     PATH: process.env.PATH
 
@@ -283,10 +296,14 @@ class IEVM
     # Simply replace dashes and spaces with an underscore and add `.zip`.
     "#{@name.replace ' - ', '_'}.zip"
 
+  fullArchive: -> path.join @constructor.ievmsHome, @archive()
+
   # Determine the name of the ova file as used by modern.ie.
   ova: ->
     return "IE6 - WinXP.ova" if @name in ['IE7 - WinXP', 'IE8 - WinXP']
     "#{@name}.ova"
+
+  fullOva: -> path.join @constructor.ievmsHome, @ova()
 
   # Generate the full URL to the modern.ie archive.
   url: -> "http://virtualization.modern.ie/vhd/IEKitV1_Final/VirtualBox/OSX/" +
@@ -432,15 +449,13 @@ class IEVM
   # Promise a boolean indicating whether the archive exists on disk.
   archived: ->
     deferred = Q.defer()
-    fs.exists path.join(@constructor.home, @archive()), (archived) ->
-      deferred.resolve archived
+    fs.exists @fullArchive(), (archived) -> deferred.resolve archived
     deferred.promise
 
   # Promise a boolean indicating whether the archive exists on disk.
   ovaed: ->
     deferred = Q.defer()
-    fs.exists path.join(@constructor.home, @ova()), (ovaed) ->
-      deferred.resolve ovaed
+    fs.exists @fullOva(), (ovaed) -> deferred.resolve ovaed
     deferred.promise
 
   _waitForStatus: (statuses, deferred, delay=1000) ->
