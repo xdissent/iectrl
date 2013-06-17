@@ -138,43 +138,49 @@ class IEVM
 
   # Throw an exception if the virtual machine is missing (not installed).
   ensureMissing: ->
-    @missing().then (missing) -> missing or throw new Error "not missing"
+    @missing().then (missing) -> missing or throw new Error 'not missing'
 
   # Throw an exception if the virtual machine is *not* missing (is installed).
   ensureNotMissing: ->
-    @missing().then (missing) -> !missing or throw new Error "missing"
+    @missing().then (missing) -> !missing or throw new Error 'missing'
 
   # Throw an exception if the virtual machine is running.
   ensureRunning: ->
-    @running().then (running) -> running or throw new Error "not running"
+    @running().then (running) -> running or throw new Error 'not running'
 
   # Throw an exception if the virtual machine is *not* running (saved/off).
   ensureNotRunning: ->
-    @running().then (running) -> !running or throw new Error "running"
+    @running().then (running) -> !running or throw new Error 'running'
+
+  # Throw an exception if the virtual machine has zero rearms left.
+  ensureRearmsLeft: -> @rearmsLeft().then (rearmsLeft) ->
+    rearmsLeft > 0 or throw new Error 'no rearms left'
+
+  # Throw an exception if the virtual machine's archive file is missing.
+  ensureArchived: ->
+    @archived().then (archived) ->
+      archived or throw new Error 'archive not present'
+
+  # Throw an exception if the virtual machine's ova file is missing.
+  ensureOvaed: ->
+    @ovaed().then (ovaed) -> ovaed or throw new Error 'ova not present'
 
   # Start the virtual machine. Throws an exception if it is already running or
   # cannot be started. If the `headless` argument is `false` (the default) then
   # the VM will be started in GUI mode.
   start: (headless=false) -> @ensureNotMissing().then =>
     @ensureNotRunning().then =>
-      deferred = Q.defer()
       type = if headless then 'headless' else 'gui'
-      @vbm 'startvm', ['--type', type], (err, stdout, stderr) =>
-        return deferred.reject err if err?
-        deferred.resolve true
-      deferred.promise.then => @waitForRunning()
+      @debug "start: #{type}"
+      @vbm('startvm', '--type', type).then => @waitForRunning()
 
   # Stop the virtual machine. Throws an exception if it is not running. If the
   # `save` argument is true (the default) then the VM state is saved. Otherwise,
   # the VM is powered off immediately which may result in data loss.
   stop: (save=true) -> @ensureNotMissing().then => @ensureRunning().then =>
-    @debug "stop: #{if save then 'save' else 'poweroff'}"
-    deferred = Q.defer()
-    cmd = if save then 'savestate' else 'poweroff'
-    @vbm 'controlvm', [cmd], (err, stdout, stderr) =>
-      return deferred.reject err if err?
-      deferred.resolve true
-    deferred.promise.then => @waitForNotRunning()
+    type = if save then 'savestate' else 'poweroff'
+    @debug "stop: #{type}"
+    @vbm('controlvm', type).then => @waitForNotRunning()
 
   # Gracefully restart the virtual machine by calling `shutdown.exe`. Throws an
   # exception if it is not running.
@@ -196,16 +202,11 @@ class IEVM
   # not currently running.
   close: -> @ensureNotMissing().then => @ensureRunning().then =>
     @debug 'close'
-    deferred = Q.defer()
-    success = -> deferred.resolve true
-    failure = -> deferred.resolve false
-    @exec('taskkill.exe', '/f', '/im', 'iexplore.exe').then success, failure
-    deferred.promise
+    @exec('taskkill.exe', '/f', '/im', 'iexplore.exe').fail -> Q(true)
 
   rearm: (delay=30000) -> @ensureNotMissing().then => @ensureRunning().then =>
-    @debug 'rearm'
-    @rearmsLeft().then (rearmsLeft) =>
-      throw new Error "no rearms left" unless rearmsLeft > 0
+    @ensureRearmsLeft().then =>
+      @debug 'rearm'
       @exec('schtasks.exe', '/run', '/tn', 'rearm').then =>
         @meta().then (meta) =>
           meta.rearms = (meta.rearms ? []).concat (new Date).getTime()
@@ -216,47 +217,36 @@ class IEVM
   # Uninstall the VM.
   uninstall: -> @ensureNotMissing().then => @ensureNotRunning().then =>
     @debug 'uninstall'
-    deferred = Q.defer()
-    @vbm 'unregistervm', ['--delete'], (err, stdout, stderr) =>
-      return deferred.reject err if err?
-      deferred.resolve true
-    deferred.promise
+    @vbm 'unregistervm', '--delete'
 
   # Install the VM.
   install: -> @ensureMissing().then =>
     @debug 'install'
     @constructor.ievms @ievmsEnv(), @debug.bind @
 
+  # Reinstall the VM.
   reinstall: -> @uninstall().then => @install()
 
   # Clean the VM.
   clean: (force=false) -> @ensureNotMissing().then =>
     @ensureNotRunning().then =>
-      deferred = Q.defer()
-      @vbm 'snapshot', ['restore', 'clean'], (err, stdout, stderr) =>
-        return deferred.reject err if err?
-        deferred.resolve true
-      deferred.promise
+      @debug 'clean'
+      @vbm 'snapshot', 'restore', 'clean'
 
   # Delete the archive.
-  unarchive: ->
+  unarchive: -> @ensureArchived().then =>
     @debug 'unarchive'
-    @archived().then (archived) =>
-      throw new Error 'not archived' unless archived
-      Q.nfcall fs.unlink, @fullArchive()
+    Q.nfcall fs.unlink, @fullArchive()
 
   # Delete the ova.
-  unova: ->
+  unova: -> @ensureOvaed().then =>
     @debug 'unova'
-    @ovaed().then (ovaed) =>
-      throw new Error 'not ovaed' unless ovaed
-      Q.nfcall fs.unlink, fullOva()
+    Q.nfcall fs.unlink, fullOva()
 
   # Execute a command in the VM.
   exec: (cmd, args...) -> @ensureNotMissing().then => @ensureRunning().then =>
     @waitForGuestControl().then =>
       @debug "exec: #{cmd} #{args.join ' '}"
-      deferred = Q.defer()
       pass = if @os isnt 'WinXP' then ['--password', 'Passw0rd!'] else []
       args = [
         'exec', '--image', cmd,
@@ -264,18 +254,11 @@ class IEVM
         '--username', 'IEUser', pass...,
         '--', args...
       ]
-      @vbm 'guestcontrol', args, (err, stdout, stderr) =>
-        return deferred.reject err if err?
-        deferred.resolve true
-      deferred.promise
+      @vbm 'guestcontrol', args...
 
   screenshot: (file) -> @ensureNotMissing().then => @ensureRunning().then =>
     @debug 'screenshot'
-    deferred = Q.defer()
-    @vbm 'controlvm', ['screenshotpng', file], (err, stdout, stderr) =>
-      return deferred.reject err if err?
-      deferred.resolve true
-    deferred.promise
+    @vbm 'controlvm', 'screenshotpng', file
 
   debug: (msg) ->
     @_debug ?= debug "iectrl:#{@name}"
@@ -292,7 +275,7 @@ class IEVM
   # Determine the name of the zip file as used by modern.ie.
   archive: ->
     # For the reused XP vms, override the default to point to the IE6 archive.
-    return "IE6_WinXP.zip" if @name in ['IE7 - WinXP', 'IE8 - WinXP']
+    return 'IE6_WinXP.zip' if @name in ['IE7 - WinXP', 'IE8 - WinXP']
     # Simply replace dashes and spaces with an underscore and add `.zip`.
     "#{@name.replace ' - ', '_'}.zip"
 
@@ -300,54 +283,41 @@ class IEVM
 
   # Determine the name of the ova file as used by modern.ie.
   ova: ->
-    return "IE6 - WinXP.ova" if @name in ['IE7 - WinXP', 'IE8 - WinXP']
+    return 'IE6 - WinXP.ova' if @name in ['IE7 - WinXP', 'IE8 - WinXP']
     "#{@name}.ova"
 
   fullOva: -> path.join @constructor.ievmsHome, @ova()
 
   # Generate the full URL to the modern.ie archive.
-  url: -> "http://virtualization.modern.ie/vhd/IEKitV1_Final/VirtualBox/OSX/" +
+  url: -> 'http://virtualization.modern.ie/vhd/IEKitV1_Final/VirtualBox/OSX/' +
     @archive()
 
-  # Build the command string for a given `VBoxManage` command and arguments.
-  vbm: (cmd, args, callback) ->
-    return @queueVbm arguments... if @_vbm
-    @_vbm = true
-    command = @constructor.vbm(cmd, [@name].concat args)
-    @debug "vbm: #{command}"
-    child_process.exec command, =>
-      callback arguments...
-      @_vbm = false
-      @vbm @vbmQueue.shift()... if @vbmQueue? and @vbmQueue.length > 0
+  # Run a `VBoxManage` command and promise the stdout contents.
+  vbm: (args...) ->
+    @_vbmQueue ?= Q()
+    @_vbmQueue = @_vbmQueue.then =>
+      deferred = Q.defer()
+      command = @constructor.vbm args.shift(), [@name].concat args
+      child_process.exec command, (err, stdout, stderr) =>
+        return deferred.reject err if err?
+        deferred.resolve stdout
+      deferred.promise
 
-  queueVbm: ->
-    @vbmQueue ?= []
-    @vbmQueue.push arguments
-
-  # Parse the "machinereadable" `VBoxManage` output format.
-  parse: (s) ->
+  # Parse the "machinereadable" `VBoxManage` vm info output format.
+  parseInfo: (s) ->
     obj = {}
-    for line in s.split "\n"
+    for line in s.trim().split "\n"
       pieces = line.split '='
       obj[pieces.shift()] = pieces.join('=').replace(/^"/, '').replace /"$/, ''
     obj
 
-  _info: (deferred, retries=3, delay=250) ->
-    @vbm 'showvminfo', ['--machinereadable'], (err, stdout, stderr) =>
-      if stderr.match /VBOX_E_OBJECT_NOT_FOUND/
-        return deferred.resolve VMState: 'missing'
-      if retries > 0 and stderr.match /E_ACCESSDENIED/
+  info: (retries=3, delay=250) ->
+    @vbm('showvminfo', '--machinereadable').then(@parseInfo).fail (err) =>
+      return Q VMState: 'missing' if err.message.match /VBOX_E_OBJECT_NOT_FOUND/
+      if retries > 0 and err.message.match /E_ACCESSDENIED/
         @debug "info: retrying (#{retries - 1} retries left)"
-        return Q.delay(250).then(=> @_info deferred, retries - 1, delay)
-          .fail (err) -> deferred.reject err
-      return deferred.reject err if err?
-      deferred.resolve @parse stdout
-
-  # Promise the parsed vm info as returned by `VBoxManage showvminfo`.
-  info: ->
-    deferred = Q.defer()
-    @_info deferred
-    deferred.promise
+        return @info retries - 1, delay
+      throw err
 
   # Promise a value from `IEVM.status` representing the vm's current status.
   status: -> @statusName().then (key) => @constructor.status[key]
@@ -375,26 +345,14 @@ class IEVM
     req.end()
     deferred.promise
 
-  # Promise to set the VM metadata.
-  setMeta: (data) ->
-    deferred = Q.defer()
-    data = JSON.stringify data
-    @vbm 'setextradata', ['ievms', data], (err, stdout, stderr) =>
-      return deferred.reject err if err?
-      deferred.resolve true
-    deferred.promise
+  # Parse the ievms meta data stored in the VirtualBox `extradata`.
+  parseMeta: (data) -> JSON.parse data.replace 'Value: ', ''
 
-  # Promise to get the VM metadata.
-  getMeta: ->
-    deferred = Q.defer()
-    @vbm 'getextradata', ['ievms'], (err, stdout, stderr) =>
-      return deferred.resolve {} if err?
-      try
-        data = JSON.parse stdout.replace 'Value: ', ''
-      catch err
-        return deferred.resolve {}
-      deferred.resolve data
-    deferred.promise
+  # Promise to set the VM metadata.
+  setMeta: (data) -> @vbm 'setextradata', 'ievms', JSON.stringify data
+
+  # Promise to get the VM metadata. Returns empty object on failure.
+  getMeta: -> @vbm('getextradata', 'ievms').then(@parseMeta).fail (err) -> Q {}
 
   # Promise getter/setter for VM metadata.
   meta: (data) -> if data? then @setMeta data else @getMeta()
@@ -500,7 +458,7 @@ class IEVM
       deferred.promise.timeout timeout
 
   _waitForNoGuestControl: (deferred, delay=1000) ->
-    @debug "_waitForNoGuestControl"
+    @debug '_waitForNoGuestControl'
     return null if deferred.promise.isRejected()
     @info().then (info) =>
       runlevel = info.GuestAdditionsRunLevel
