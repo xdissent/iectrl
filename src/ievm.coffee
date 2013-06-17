@@ -165,6 +165,8 @@ class IEVM
   ensureOvaed: ->
     @ovaed().then (ovaed) -> ovaed or throw new Error 'ova not present'
 
+  # ### Action Methods
+
   # Start the virtual machine. Throws an exception if it is already running or
   # cannot be started. If the `headless` argument is `false` (the default) then
   # the VM will be started in GUI mode.
@@ -204,6 +206,8 @@ class IEVM
     @debug 'close'
     @exec('taskkill.exe', '/f', '/im', 'iexplore.exe').fail -> Q(true)
 
+  # Rearm the virtual machine, extending the license for 90 days. Unfortunately,
+  # rearming is only supported by the Win7 virtual machines at this time.
   rearm: (delay=30000) -> @ensureNotMissing().then => @ensureRunning().then =>
     @ensureRearmsLeft().then =>
       @debug 'rearm'
@@ -214,36 +218,46 @@ class IEVM
             @exec('schtasks.exe', '/run', '/tn', 'activate').then =>
               Q.delay(delay).then => @restart()
 
-  # Uninstall the VM.
+  # Uninstall the virtual machine. Removes the virtual machine and hdd from
+  # VirtualBox, keeping the archive or ova on disk.
   uninstall: -> @ensureNotMissing().then => @ensureNotRunning().then =>
     @debug 'uninstall'
     @vbm 'unregistervm', '--delete'
 
-  # Install the VM.
+  # Install the virtual machine through ievms. Throws an exception if it is
+  # already installed.
   install: -> @ensureMissing().then =>
     @debug 'install'
     @constructor.ievms @ievmsEnv(), @debug.bind @
 
-  # Reinstall the VM.
+  # Reinstall the virtual machine through ievms. Throws an exception if it is
+  # running or not installed.
   reinstall: -> @uninstall().then => @install()
 
-  # Clean the VM.
+  # Restore the virtual machine to the `clean` snapshot created by ievms. Throws
+  # an exception if it is missing or currently running.
   clean: (force=false) -> @ensureNotMissing().then =>
     @ensureNotRunning().then =>
       @debug 'clean'
       @vbm 'snapshot', 'restore', 'clean'
 
-  # Delete the archive.
+  # Delete the archive file for the virtual machine. If the ova is not present,
+  # the archive must be redownloaded to reinstall the virtual machine. Throws
+  # an exception if the archive is not present.
   unarchive: -> @ensureArchived().then =>
     @debug 'unarchive'
     Q.nfcall fs.unlink, @fullArchive()
 
-  # Delete the ova.
+  # Delete the ova file for the virtual machine. If the archive is not present,
+  # it must be redownloaded to reinstall the virtual machine. Throws an
+  # exception if the ova is not present.
   unova: -> @ensureOvaed().then =>
     @debug 'unova'
     Q.nfcall fs.unlink, fullOva()
 
-  # Execute a command in the VM.
+  # Execute a command in the virtual machine. Throws an exception if it is
+  # not installed or not running, or if the command fails. Waits for guest
+  # control before proceeding.
   exec: (cmd, args...) -> @ensureNotMissing().then => @ensureRunning().then =>
     @waitForGuestControl().then =>
       @debug "exec: #{cmd} #{args.join ' '}"
@@ -256,21 +270,14 @@ class IEVM
       ]
       @vbm 'guestcontrol', args...
 
+  # Take a screenshot of the virtual machine and save it to disk. Throws an
+  # exception if it is not installed or not running, or if the screenshot 
+  # command fails.
   screenshot: (file) -> @ensureNotMissing().then => @ensureRunning().then =>
     @debug 'screenshot'
     @vbm 'controlvm', 'screenshotpng', file
 
-  debug: (msg) ->
-    @_debug ?= debug "iectrl:#{@name}"
-    @_debug msg
-
-  # Build an environment hash to pass to ievms for installation.
-  ievmsEnv: ->
-    IEVMS_VERSIONS: @version
-    REUSE_XP: if @version in [7, 8] and @os is 'WinXP' then 'yes' else 'no'
-    INSTALL_PATH: @constructor.ievmsHome
-    HOME: process.env.HOME
-    PATH: process.env.PATH
+  # ### Attribute Methods
 
   # Determine the name of the zip file as used by modern.ie.
   archive: ->
@@ -279,6 +286,7 @@ class IEVM
     # Simply replace dashes and spaces with an underscore and add `.zip`.
     "#{@name.replace ' - ', '_'}.zip"
 
+  # Determine the full path to the archive file.
   fullArchive: -> path.join @constructor.ievmsHome, @archive()
 
   # Determine the name of the ova file as used by modern.ie.
@@ -286,31 +294,16 @@ class IEVM
     return 'IE6 - WinXP.ova' if @name in ['IE7 - WinXP', 'IE8 - WinXP']
     "#{@name}.ova"
 
+  # Determine the full path to the ova file.
   fullOva: -> path.join @constructor.ievmsHome, @ova()
 
   # Generate the full URL to the modern.ie archive.
   url: -> 'http://virtualization.modern.ie/vhd/IEKitV1_Final/VirtualBox/OSX/' +
     @archive()
 
-  # Run a `VBoxManage` command and promise the stdout contents.
-  vbm: (args...) ->
-    @_vbmQueue ?= Q()
-    @_vbmQueue = @_vbmQueue.then =>
-      deferred = Q.defer()
-      command = @constructor.vbm args.shift(), [@name].concat args
-      child_process.exec command, (err, stdout, stderr) =>
-        return deferred.reject err if err?
-        deferred.resolve stdout
-      deferred.promise
-
-  # Parse the "machinereadable" `VBoxManage` vm info output format.
-  parseInfo: (s) ->
-    obj = {}
-    for line in s.trim().split "\n"
-      pieces = line.split '='
-      obj[pieces.shift()] = pieces.join('=').replace(/^"/, '').replace /"$/, ''
-    obj
-
+  # Retrieve and parse the virtual machine info from `VBoxManage showvminfo`.
+  # If `E_ACCESSDENIED` is caught, the command will be retried up to 3 times
+  # before rejecting the promise.
   info: (retries=3, delay=250) ->
     @vbm('showvminfo', '--machinereadable').then(@parseInfo).fail (err) =>
       return Q VMState: 'missing' if err.message.match /VBOX_E_OBJECT_NOT_FOUND/
@@ -329,7 +322,7 @@ class IEVM
   # the modern.ie website.
   uploaded: ->
     # Return the cached uploaded date if available.
-    return (Q.fcall => @_uploaded) if @_uploaded?
+    return Q @_uploaded if @_uploaded?
     # Defer a 'HEAD' request to the archive URL to determine the `last-modified`
     # time and date.
     deferred = Q.defer()
@@ -345,55 +338,8 @@ class IEVM
     req.end()
     deferred.promise
 
-  # Parse the ievms meta data stored in the VirtualBox `extradata`.
-  parseMeta: (data) -> JSON.parse data.replace 'Value: ', ''
-
-  # Promise to set the VM metadata.
-  setMeta: (data) -> @vbm 'setextradata', 'ievms', JSON.stringify data
-
-  # Promise to get the VM metadata. Returns empty object on failure.
-  getMeta: -> @vbm('getextradata', 'ievms').then(@parseMeta).fail (err) -> Q {}
-
   # Promise getter/setter for VM metadata.
   meta: (data) -> if data? then @setMeta data else @getMeta()
-
-  # Promise the UUID of the VM's hdd.
-  hddUuid: -> @info().then (info) =>
-    info['"SATA Controller-ImageUUID-0-0"'] ?
-      info['"IDE Controller-ImageUUID-0-0"']
-
-  # Promise an object representing the base hdd.
-  hdd: -> @constructor.hdds().then (hdds) => @hddUuid().then (uid) =>
-    return null unless uid? and hdds[uid]
-    uid = hdds[uid]['Parent UUID'] while hdds[uid]['Parent UUID'] isnt 'base'
-    hdds[uid]
-
-  # Promise an `fs.stat` object for the VM's base hdd file.
-  hddStat: -> @hdd().then (hdd) => Q.nfcall fs.stat, hdd.Location
-
-  # Promise a `Date` object representing when the VM will expire.
-  expires: -> @missing().then (missing) =>
-    return null if missing
-    ninetyDays = 90 * 1000 * 60 * 60 * 24
-    if @os is 'WinXP' then return @uploaded().then (uploaded) ->
-      new Date uploaded.getTime() + ninetyDays
-    @meta().then (meta) =>
-      if meta.rearms? and meta.rearms.length > 0
-        # Add ninety days to the most recent rearm date.
-        new Date meta.rearms[meta.rearms.length - 1] + ninetyDays
-      else if meta.installed?
-        # Add ninety days to the install date from metadata.
-        new Date meta.installed + ninetyDays
-      else
-        # Fall back to the original date when the hdd was last modified.
-        @hddStat().then (stat) => new Date stat.mtime.getTime() + ninetyDays
-
-  # Promise an array of rearm dates or empty array if none exist.
-  rearms: -> @meta().then (meta) => meta.rearms ? []
-
-  # Promise the number of rearms left for the VM.
-  rearmsLeft: -> @rearms().then (rearms) =>
-    @constructor.rearms[@os] - rearms.length
 
   # Promise a boolean indicating whether the VM is missing.
   missing: -> @status().then (status) => status is @constructor.status.MISSING
@@ -415,6 +361,93 @@ class IEVM
     deferred = Q.defer()
     fs.exists @fullOva(), (ovaed) -> deferred.resolve ovaed
     deferred.promise
+
+  # Promise a `Date` object representing when the VM will expire.
+  expires: -> @missing().then (missing) =>
+    return null if missing
+    thirtyDays = 30 * 1000 * 60 * 60 * 24
+    ninetyDays = thirtyDays * 3
+
+    # XP virtual machines expire after 30 days from creation. Others get 90.
+    if @os is 'WinXP' then return @hddCreated().then (created) ->
+      new Date created.getTime() + thirtyDays
+
+    # Try to fetch last rearm date from metadata.
+    @rearmDates().then (rearms) =>
+      if rearms.length > 0
+        # Add ninety days to the most recent rearm date.
+        new Date rearms[rearms.length - 1].getTime() + ninetyDays
+      else
+        # Fall back to the original date when the hdd was last modified.
+        @hddCreated().then (created) -> new Date created.getTime() + ninetyDays
+
+  # Promise an array of rearm dates or empty array if none exist.
+  rearmDates: -> @meta().then (meta) =>
+    return [] unless meta.rearms? and meta.rearms.length?
+    new Date d for d in meta.rearms
+
+  # Promise the number of rearms left for the VM.
+  rearmsLeft: -> @rearmDates().then (rearms) =>
+    @constructor.rearms[@os] - rearms.length
+
+  # ### Utilities
+
+  # Output a debug message for the virtual machine.
+  debug: (msg) ->
+    @_debug ?= debug "iectrl:#{@name}"
+    @_debug msg
+
+  # Build an environment hash to pass to ievms for installation.
+  ievmsEnv: ->
+    IEVMS_VERSIONS: @version
+    REUSE_XP: if @version in [7, 8] and @os is 'WinXP' then 'yes' else 'no'
+    INSTALL_PATH: @constructor.ievmsHome
+    HOME: process.env.HOME
+    PATH: process.env.PATH
+
+  # Run a `VBoxManage` command and promise the stdout contents.
+  vbm: (args...) ->
+    @_vbmQueue ?= Q()
+    @_vbmQueue = @_vbmQueue.then =>
+      deferred = Q.defer()
+      command = @constructor.vbm args.shift(), [@name].concat args
+      child_process.exec command, (err, stdout, stderr) =>
+        return deferred.reject err if err?
+        deferred.resolve stdout
+      deferred.promise
+
+  # Parse the "machinereadable" `VBoxManage` vm info output format.
+  parseInfo: (s) ->
+    obj = {}
+    for line in s.trim().split "\n"
+      pieces = line.split '='
+      obj[pieces.shift()] = pieces.join('=').replace(/^"/, '').replace /"$/, ''
+    obj
+
+  # Parse the ievms meta data stored in the VirtualBox `extradata`.
+  parseMeta: (data) -> JSON.parse data.replace 'Value: ', ''
+
+  # Promise to set the VM metadata.
+  setMeta: (data) -> @vbm 'setextradata', 'ievms', JSON.stringify data
+
+  # Promise to get the VM metadata. Returns empty object on failure.
+  getMeta: -> @vbm('getextradata', 'ievms').then(@parseMeta).fail (err) -> Q {}
+
+  # Promise the UUID of the VM's hdd.
+  hddUuid: -> @info().then (info) =>
+    info['"SATA Controller-ImageUUID-0-0"'] ?
+      info['"IDE Controller-ImageUUID-0-0"']
+
+  # Promise an object representing the base hdd.
+  hdd: -> @constructor.hdds().then (hdds) => @hddUuid().then (uid) =>
+    return null unless uid? and hdds[uid]
+    uid = hdds[uid]['Parent UUID'] while hdds[uid]['Parent UUID'] isnt 'base'
+    hdds[uid]
+
+  # Promise an `fs.stat` object for the VM's base hdd file.
+  hddStat: -> @hdd().then (hdd) => Q.nfcall fs.stat, hdd.Location
+
+  hddCreated: -> @hddStat().then (stat) => stat.mtime
 
   _waitForStatus: (statuses, deferred, delay=1000) ->
     statuses = [].concat statuses
