@@ -41,9 +41,6 @@ formatFile = (name, present) ->
 formatOvaed = (ovaed) -> formatFile 'ova', ovaed
 formatArchived = (archived) -> formatFile 'archive', archived
 
-columns = (cols...) ->
-  ("#{c}                                ".slice 0, 32 for c in cols).join ''
-
 formatStatus = (vm) -> Q.all(vm[attr]() for attr in statusAttrs)
   .spread (statusName, ovaed, archived, expires, rearmsLeft) ->
     status = formatStatusName statusName
@@ -51,7 +48,7 @@ formatStatus = (vm) -> Q.all(vm[attr]() for attr in statusAttrs)
     archived = formatArchived archived
     expires = formatExpires expires
     rearms = if statusName is 'MISSING' then '' else formatRearms rearmsLeft
-    columns vm.name, status, ovaed, archived, expires, rearms
+    cli.columns vm.name, status, ovaed, archived, expires, rearms
 
 module.exports = (program) -> program
   .command('status [names]')

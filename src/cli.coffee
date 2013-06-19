@@ -2,6 +2,9 @@ Q = require 'q'
 colors = require 'colors'
 IEVM = require './ievm'
 
+exports.columns = (cols...) ->
+  ("#{c}                                ".slice 0, 32 for c in cols).join ''
+
 find = (names) ->
   return IEVM.all() unless names? and names.length? and names.length > 0
   vms = []

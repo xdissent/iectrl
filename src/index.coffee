@@ -17,6 +17,7 @@ subcommands = [
   'status'
   'stop'
   'uninstall'
+  'uploaded'
 ]
 
 program.version(pkg.version)
