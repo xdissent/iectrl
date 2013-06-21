@@ -56,10 +56,10 @@ $ iectrl --help
 
   Commands:
 
-    clean [names]          restore virtual machines to the clean snapshot
-    close [names]          close all running IE processes in virtual machines
-    install [names]        install virtual machines with ievms
-    nuke [names]           remove all traces of virtual machines
+    clean [names] restore virtual machines to the clean snapshot
+    close [names] close all running IE processes in virtual machines
+    install [options] [names] install virtual machines with ievms
+    nuke [names] remove all traces of virtual machines
     open [options] [names] [url] open a URL in IE
     rearm [options] [names] rearm virtual machines
     reinstall [options] [names] reinstall virtual machines
@@ -69,7 +69,8 @@ $ iectrl --help
     start [options] [names] start virtual machines
     status [options] [names] report the status of one or more vms
     stop [options] [names] stop virtual machines
-    uninstall [names]      uninstall virtual machines
+    uninstall [options] [names] uninstall virtual machines
+    uploaded [names] report the last time the VM was uploaded to modern.ie
 
   Options:
 
