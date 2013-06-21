@@ -247,10 +247,11 @@ class IEVM
 
   # Restore the virtual machine to the `clean` snapshot created by ievms. Throws
   # an exception if it is missing or currently running.
-  clean: (force=false) -> @ensureNotMissing().then =>
-    @ensureNotRunning().then =>
-      @debug 'clean'
-      @vbm 'snapshot', 'restore', 'clean'
+  clean: -> @ensureNotMissing().then => @ensureNotRunning().then =>
+    @debug 'clean'
+    @vbm('snapshot', 'restore', 'clean').then => @meta().then (meta) =>
+      meta.rearms = []
+      @meta meta
 
   # Delete the archive file for the virtual machine. If the ova is not present,
   # the archive must be redownloaded to reinstall the virtual machine. Throws
@@ -518,7 +519,7 @@ class IEVM
     @_waitForNoGuestControl(deferred, delay).fail (err) -> deferred.reject err
     deferred.promise.timeout timeout
 
-  waitForNetwork: (host=@constructor.hostIp, retries=3, delay=3000) ->
+  waitForNetwork: (host=@constructor.hostIp, retries=5, delay=3000) ->
     @debug 'waitForNetwork'
     @exec('ping.exe', host, '-n', '1').fail (err) =>
       throw err if retries <= 0
