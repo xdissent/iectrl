@@ -1,0 +1,60 @@
+<!DOCTYPE html><html lang="en"><head><title>src/commands/status</title></head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0"><meta name="groc-relative-root" content="../../"><meta name="groc-document-path" content="src/commands/status"><meta name="groc-project-path" content="src/commands/status.coffee"><meta name="groc-github-url" content="https://github.com/xdissent/iectrl"><link rel="stylesheet" type="text/css" media="all" href="../../assets/style.css"><script type="text/javascript" src="../../assets/behavior.js"></script><body><div id="meta"><div class="file-path"><a href="https://github.com/xdissent/iectrl/blob/master/src/commands/status.coffee">src/commands/status.coffee</a></div></div><div id="document"><div class="segment"><div class="code"><div class="wrapper"><span class="nv">Q = </span><span class="nx">require</span> <span class="s">&#39;q&#39;</span>
+<span class="nv">colors = </span><span class="nx">require</span> <span class="s">&#39;colors&#39;</span>
+<span class="nv">moment = </span><span class="nx">require</span> <span class="s">&#39;moment&#39;</span>
+<span class="nv">cli = </span><span class="nx">require</span> <span class="s">&#39;../cli&#39;</span>
+
+<span class="nv">statusAttrs = </span><span class="p">[</span>
+  <span class="s">&#39;statusName&#39;</span>
+  <span class="s">&#39;ovaed&#39;</span>
+  <span class="s">&#39;archived&#39;</span>
+  <span class="s">&#39;expires&#39;</span>
+  <span class="s">&#39;rearmsLeft&#39;</span>
+<span class="p">]</span>
+
+<span class="nv">formatStatusName = </span><span class="nf">(status) -&gt;</span>
+  <span class="nv">color = </span><span class="k">switch</span> <span class="nx">status</span>
+    <span class="k">when</span> <span class="s">&#39;MISSING&#39;</span> <span class="k">then</span> <span class="s">&#39;red&#39;</span>
+    <span class="k">when</span> <span class="s">&#39;RUNNING&#39;</span> <span class="k">then</span> <span class="s">&#39;green&#39;</span>
+    <span class="k">else</span> <span class="s">&#39;yellow&#39;</span>
+  <span class="nx">status</span><span class="p">[</span><span class="nx">color</span><span class="p">]</span>
+
+<span class="nv">formatExpires = </span><span class="nf">(expires) -&gt;</span>
+  <span class="k">return</span> <span class="s">&#39;&#39;</span> <span class="k">unless</span> <span class="nx">expires</span><span class="o">?</span>
+  <span class="nv">days = </span><span class="nx">moment</span><span class="p">(</span><span class="nx">expires</span><span class="p">).</span><span class="nx">diff</span> <span class="k">new</span> <span class="nb">Date</span><span class="p">,</span> <span class="s">&#39;days&#39;</span>
+  <span class="nv">msg = </span><span class="k">if</span> <span class="nx">days</span> <span class="o">&lt;</span> <span class="mi">1</span> <span class="k">then</span> <span class="s">&#39;expired&#39;</span> <span class="k">else</span> <span class="s">&#39;expires&#39;</span>
+  <span class="nv">color = </span><span class="k">if</span> <span class="nx">days</span> <span class="o">&lt;=</span> <span class="mi">1</span> <span class="k">then</span> <span class="s">&#39;red&#39;</span> <span class="k">else</span> <span class="k">if</span> <span class="nx">days</span> <span class="o">&lt;=</span> <span class="mi">7</span> <span class="k">then</span> <span class="s">&#39;yellow&#39;</span> <span class="k">else</span> <span class="s">&#39;green&#39;</span>
+  <span class="s">&quot;</span><span class="si">#{</span><span class="nx">msg</span><span class="p">[</span><span class="nx">color</span><span class="p">]</span><span class="si">}</span><span class="s"> </span><span class="si">#{</span><span class="nx">moment</span><span class="p">(</span><span class="nx">expires</span><span class="p">).</span><span class="nx">fromNow</span><span class="p">()</span><span class="si">}</span><span class="s">&quot;</span><span class="p">.</span><span class="nx">trim</span><span class="p">()</span>
+
+<span class="nv">formatRearms = </span><span class="nf">(rearmsLeft) -&gt;</span>
+  <span class="k">return</span> <span class="s">&#39;&#39;</span> <span class="k">unless</span> <span class="nx">rearmsLeft</span><span class="o">?</span>
+  <span class="nv">color = </span><span class="k">switch</span> <span class="nx">rearmsLeft</span>
+    <span class="k">when</span> <span class="mi">0</span> <span class="k">then</span> <span class="s">&#39;red&#39;</span>
+    <span class="k">when</span> <span class="mi">1</span> <span class="k">then</span> <span class="s">&#39;yellow&#39;</span>
+    <span class="k">else</span> <span class="s">&#39;green&#39;</span>
+  <span class="nv">rearms = </span><span class="s">&quot;</span><span class="si">#{</span><span class="nx">rearmsLeft</span><span class="si">}</span><span class="s">&quot;</span><span class="p">[</span><span class="nx">color</span><span class="p">]</span>
+  <span class="s">&quot;</span><span class="si">#{</span><span class="nx">rearms</span><span class="si">}</span><span class="s"> rearms left&quot;</span>
+
+<span class="nv">formatFile = </span><span class="nf">(name, present) -&gt;</span>
+  <span class="nv">msg = </span><span class="k">if</span> <span class="nx">present</span> <span class="k">then</span> <span class="s">&#39;present&#39;</span><span class="p">.</span><span class="nx">green</span> <span class="k">else</span> <span class="s">&#39;missing&#39;</span><span class="p">.</span><span class="nx">red</span>
+  <span class="s">&quot;</span><span class="si">#{</span><span class="nx">name</span><span class="si">}</span><span class="s"> </span><span class="si">#{</span><span class="nx">msg</span><span class="si">}</span><span class="s">&quot;</span>
+
+<span class="nv">formatOvaed = </span><span class="nf">(ovaed) -&gt;</span> <span class="nx">formatFile</span> <span class="s">&#39;ova&#39;</span><span class="p">,</span> <span class="nx">ovaed</span>
+<span class="nv">formatArchived = </span><span class="nf">(archived) -&gt;</span> <span class="nx">formatFile</span> <span class="s">&#39;archive&#39;</span><span class="p">,</span> <span class="nx">archived</span>
+
+<span class="nv">formatStatus = </span><span class="nf">(vm) -&gt;</span> <span class="nx">Q</span><span class="p">.</span><span class="nx">all</span><span class="p">(</span><span class="nx">vm</span><span class="p">[</span><span class="nx">attr</span><span class="p">]()</span> <span class="k">for</span> <span class="nx">attr</span> <span class="k">in</span> <span class="nx">statusAttrs</span><span class="p">)</span>
+  <span class="p">.</span><span class="nx">spread</span> <span class="nf">(statusName, ovaed, archived, expires, rearmsLeft) -&gt;</span>
+    <span class="nv">status = </span><span class="nx">formatStatusName</span> <span class="nx">statusName</span>
+    <span class="nv">ovaed = </span><span class="nx">formatOvaed</span> <span class="nx">ovaed</span>
+    <span class="nv">archived = </span><span class="nx">formatArchived</span> <span class="nx">archived</span>
+    <span class="nv">expires = </span><span class="nx">formatExpires</span> <span class="nx">expires</span>
+    <span class="nv">rearms = </span><span class="k">if</span> <span class="nx">statusName</span> <span class="o">is</span> <span class="s">&#39;MISSING&#39;</span> <span class="k">then</span> <span class="s">&#39;&#39;</span> <span class="k">else</span> <span class="nx">formatRearms</span> <span class="nx">rearmsLeft</span>
+    <span class="nx">cli</span><span class="p">.</span><span class="nx">columns</span> <span class="nx">vm</span><span class="p">.</span><span class="nx">name</span><span class="p">,</span> <span class="nx">status</span><span class="p">,</span> <span class="nx">ovaed</span><span class="p">,</span> <span class="nx">archived</span><span class="p">,</span> <span class="nx">expires</span><span class="p">,</span> <span class="nx">rearms</span>
+
+<span class="nv">module.exports = </span><span class="nf">(program) -&gt;</span> <span class="nx">program</span>
+  <span class="p">.</span><span class="nx">command</span><span class="p">(</span><span class="s">&#39;status [names]&#39;</span><span class="p">)</span>
+  <span class="p">.</span><span class="nx">description</span><span class="p">(</span><span class="s">&#39;report the status of one or more vms&#39;</span><span class="p">)</span>
+  <span class="p">.</span><span class="nx">option</span><span class="p">(</span><span class="s">&#39;-m, --missing&#39;</span><span class="p">,</span> <span class="s">&#39;show VMs that are not installed&#39;</span><span class="p">)</span>
+  <span class="p">.</span><span class="nx">action</span> <span class="nf">(names, command) -&gt;</span>
+    <span class="nx">cli</span><span class="p">.</span><span class="nx">fail</span> <span class="nx">cli</span><span class="p">.</span><span class="nx">find</span><span class="p">(</span><span class="nx">names</span><span class="p">).</span><span class="nx">maybeWhere</span><span class="p">(</span><span class="o">!</span><span class="nx">command</span><span class="p">.</span><span class="nx">missing</span><span class="p">,</span> <span class="s">&#39;!missing&#39;</span><span class="p">).</span><span class="nx">found</span><span class="p">()</span>
+      <span class="p">.</span><span class="nx">all</span><span class="p">(</span><span class="nx">formatStatus</span><span class="p">,</span> <span class="kc">true</span><span class="p">).</span><span class="nx">then</span> <span class="nf">(statuses) -&gt;</span>
+        <span class="nx">console</span><span class="p">.</span><span class="nx">log</span> <span class="nx">status</span> <span class="k">for</span> <span class="nx">status</span> <span class="k">in</span> <span class="nx">statuses</span></div></div></div></div></body></html>

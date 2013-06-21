@@ -1,0 +1,73 @@
+<!DOCTYPE html><html lang="en"><head><title>src/cli</title></head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0"><meta name="groc-relative-root" content="../"><meta name="groc-document-path" content="src/cli"><meta name="groc-project-path" content="src/cli.coffee"><meta name="groc-github-url" content="https://github.com/xdissent/iectrl"><link rel="stylesheet" type="text/css" media="all" href="../assets/style.css"><script type="text/javascript" src="../assets/behavior.js"></script><body><div id="meta"><div class="file-path"><a href="https://github.com/xdissent/iectrl/blob/master/src/cli.coffee">src/cli.coffee</a></div></div><div id="document"><div class="segment"><div class="comments"><div class="wrapper"><h1 id="cli">cli</h1></div></div></div><div class="segment"><div class="comments"><div class="wrapper"><p>Hi there. This gets pretty gross in here but it's just a simple promise-based
+query api for groups of IEVM instances. I called it a <code>dsl</code> for some
+reason. The module's also called <code>cli</code> so nothing really makes sense. Just
+give me a pass on this one for the time being.</p></div></div><div class="code"><div class="wrapper"><span class="nv">Q = </span><span class="nx">require</span> <span class="s">&#39;q&#39;</span>
+<span class="nv">colors = </span><span class="nx">require</span> <span class="s">&#39;colors&#39;</span>
+<span class="nv">IEVM = </span><span class="nx">require</span> <span class="s">&#39;./ievm&#39;</span>
+
+<span class="nv">exports.columns = </span><span class="nf">(cols...) -&gt;</span>
+  <span class="p">(</span><span class="s">&quot;</span><span class="si">#{</span><span class="nx">c</span><span class="si">}</span><span class="s">                                &quot;</span><span class="p">.</span><span class="nx">slice</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">32</span> <span class="k">for</span> <span class="nx">c</span> <span class="k">in</span> <span class="nx">cols</span><span class="p">).</span><span class="nx">join</span> <span class="s">&#39;&#39;</span>
+
+<span class="nv">find = </span><span class="nf">(names) -&gt;</span>
+  <span class="k">return</span> <span class="nx">IEVM</span><span class="p">.</span><span class="nx">all</span><span class="p">()</span> <span class="k">unless</span> <span class="nx">names</span><span class="o">?</span> <span class="o">and</span> <span class="nx">names</span><span class="p">.</span><span class="nx">length</span><span class="o">?</span> <span class="o">and</span> <span class="nx">names</span><span class="p">.</span><span class="nx">length</span> <span class="o">&gt;</span> <span class="mi">0</span>
+  <span class="nv">vms = </span><span class="p">[]</span>
+  <span class="nv">vms = </span><span class="nx">vms</span><span class="p">.</span><span class="nx">concat</span> <span class="nx">IEVM</span><span class="p">.</span><span class="nx">find</span> <span class="nx">n</span><span class="p">.</span><span class="nx">trim</span><span class="p">()</span> <span class="k">for</span> <span class="nx">n</span> <span class="k">in</span> <span class="nx">names</span><span class="p">.</span><span class="nx">split</span> <span class="s">&#39;,&#39;</span>
+  <span class="nx">vms</span>
+
+<span class="nv">where = </span><span class="nf">(vms, attr, invert=false) -&gt;</span>
+  <span class="k">if</span> <span class="nx">attr</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">is</span> <span class="s">&#39;!&#39;</span>
+    <span class="nv">attr = </span><span class="nx">attr</span><span class="p">.</span><span class="nx">slice</span> <span class="mi">1</span>
+    <span class="nv">invert = </span><span class="o">!</span><span class="nx">invert</span>
+  <span class="nx">Q</span><span class="p">.</span><span class="nx">all</span><span class="p">(</span><span class="nx">vm</span><span class="p">[</span><span class="nx">attr</span><span class="p">]()</span> <span class="k">for</span> <span class="nx">vm</span> <span class="k">in</span> <span class="nx">vms</span><span class="p">).</span><span class="nx">then</span> <span class="nf">(attrs) -&gt;</span>
+    <span class="nx">vm</span> <span class="k">for</span> <span class="nx">vm</span><span class="p">,</span> <span class="nx">i</span> <span class="k">in</span> <span class="nx">vms</span> <span class="k">when</span> <span class="k">if</span> <span class="nx">invert</span> <span class="k">then</span> <span class="o">!</span><span class="nx">attrs</span><span class="p">[</span><span class="nx">i</span><span class="p">]</span> <span class="k">else</span> <span class="nx">attrs</span><span class="p">[</span><span class="nx">i</span><span class="p">]</span>
+
+<span class="nv">dsl =</span>
+  <span class="nv">where: </span><span class="nf">(attrs...) -&gt;</span>
+    <span class="nv">promise = </span><span class="nx">@</span>
+    <span class="k">for</span> <span class="nx">attr</span> <span class="k">in</span> <span class="nx">attrs</span>
+      <span class="nx">do</span> <span class="nf">(attr) -&gt;</span> <span class="nv">promise = </span><span class="nx">promise</span><span class="p">.</span><span class="nx">then</span> <span class="nf">(vms) -&gt;</span> <span class="nx">where</span> <span class="nx">vms</span><span class="p">,</span> <span class="nx">attr</span>
+    <span class="nx">addDsl</span> <span class="nx">promise</span>
+
+  <span class="nv">maybeWhere: </span><span class="nf">(maybe, attrs...) -&gt;</span> <span class="k">if</span> <span class="nx">maybe</span> <span class="k">then</span> <span class="nx">@where</span> <span class="nx">attrs</span><span class="p">...</span> <span class="k">else</span> <span class="nx">@</span>
+
+  <span class="nv">found: </span><span class="nf">(err) -&gt;</span> <span class="nx">addDsl</span> <span class="nx">@</span><span class="k">then</span> <span class="nf">(vms) -&gt;</span>
+    <span class="nx">err</span> <span class="o">?=</span> <span class="s">&#39;no matching virtual machines found&#39;</span>
+    <span class="k">if</span> <span class="nx">vms</span><span class="p">.</span><span class="nx">length</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">then</span> <span class="k">throw</span> <span class="nx">err</span> <span class="k">else</span> <span class="nx">Q</span><span class="p">.</span><span class="nx">fcall</span> <span class="nf">-&gt;</span> <span class="nx">vms</span>
+
+  <span class="nv">all: </span><span class="nf">(fn, ret=false) -&gt;</span>
+    <span class="nx">addDsl</span> <span class="nx">@</span><span class="k">then</span> <span class="nf">(vms) -&gt;</span> <span class="nx">Q</span><span class="p">.</span><span class="nx">all</span><span class="p">(</span><span class="nx">Q</span><span class="p">.</span><span class="nx">fcall</span> <span class="nx">fn</span><span class="p">,</span> <span class="nx">vm</span> <span class="k">for</span> <span class="nx">vm</span> <span class="k">in</span> <span class="nx">vms</span><span class="p">).</span><span class="nx">then</span> <span class="nf">(vals) -&gt;</span>
+      <span class="k">if</span> <span class="nx">ret</span> <span class="k">then</span> <span class="nx">vals</span> <span class="k">else</span> <span class="nx">vms</span>
+
+  <span class="nv">seq: </span><span class="nf">(fn) -&gt;</span> <span class="nx">@</span><span class="k">then</span> <span class="nf">(vms) -&gt;</span>
+    <span class="nv">seq = </span><span class="nx">Q</span><span class="p">()</span>
+    <span class="k">for</span> <span class="nx">vm</span> <span class="k">in</span> <span class="nx">vms</span>
+      <span class="nx">do</span> <span class="nf">(vm) -&gt;</span> <span class="nv">seq = </span><span class="nx">seq</span><span class="p">.</span><span class="nx">then</span> <span class="nf">-&gt;</span> <span class="nx">Q</span><span class="p">.</span><span class="nx">fcall</span> <span class="nx">fn</span><span class="p">,</span> <span class="nx">vm</span>
+    <span class="nx">seq</span>
+
+  <span class="nv">autoStart: </span><span class="nf">(headless) -&gt;</span> <span class="nx">addDsl</span> <span class="nx">@</span><span class="k">then</span> <span class="nf">(vms) =&gt;</span>
+    <span class="nx">@where</span><span class="p">(</span><span class="s">&#39;!running&#39;</span><span class="p">).</span><span class="nx">all</span><span class="p">(</span><span class="nf">(vm) -&gt;</span> <span class="nx">vm</span><span class="p">.</span><span class="nx">start</span> <span class="nx">headless</span><span class="p">).</span><span class="nx">then</span> <span class="nf">-&gt;</span> <span class="nx">vms</span>
+
+  <span class="nv">maybeAutoStart: </span><span class="nf">(maybe, headless) -&gt;</span> <span class="k">if</span> <span class="nx">maybe</span> <span class="k">then</span> <span class="nx">@autoStart</span> <span class="nx">headless</span> <span class="k">else</span> <span class="nx">@</span>
+
+  <span class="nv">groupReused: </span><span class="nf">(fn) -&gt;</span>
+    <span class="nv">group = </span><span class="nf">(vms) -&gt;</span>
+      <span class="nv">win7Names = </span><span class="p">[</span><span class="s">&#39;IE9 - Win7&#39;</span><span class="p">,</span> <span class="s">&#39;IE10 - Win7&#39;</span><span class="p">]</span>
+      <span class="nv">xps = </span><span class="p">(</span><span class="nx">vm</span> <span class="k">for</span> <span class="nx">vm</span> <span class="k">in</span> <span class="nx">vms</span> <span class="k">when</span> <span class="nx">vm</span><span class="p">.</span><span class="nx">os</span> <span class="o">is</span> <span class="s">&#39;WinXP&#39;</span><span class="p">)</span>
+      <span class="nv">win7s = </span><span class="p">(</span><span class="nx">vm</span> <span class="k">for</span> <span class="nx">vm</span> <span class="k">in</span> <span class="nx">vms</span> <span class="k">when</span> <span class="nx">vm</span><span class="p">.</span><span class="nx">name</span> <span class="k">in</span> <span class="nx">win7Names</span><span class="p">)</span>
+      <span class="nv">rest = </span><span class="p">(</span><span class="nx">vm</span> <span class="k">for</span> <span class="nx">vm</span> <span class="k">in</span> <span class="nx">vms</span> <span class="k">when</span> <span class="nx">vm</span><span class="p">.</span><span class="nx">os</span> <span class="o">isnt</span> <span class="s">&#39;WinXP&#39;</span> <span class="o">and</span>
+        <span class="nx">vm</span><span class="p">.</span><span class="nx">name</span> <span class="o">not</span> <span class="k">in</span> <span class="nx">win7Names</span><span class="p">)</span>
+      <span class="p">[</span><span class="nx">xps</span><span class="p">,</span> <span class="nx">win7s</span><span class="p">,</span> <span class="nx">rest</span><span class="p">]</span>
+    <span class="nx">@</span><span class="k">then</span><span class="p">(</span><span class="nx">group</span><span class="p">).</span><span class="nx">spread</span> <span class="nf">(xps, win7s, rest) -&gt;</span>
+      <span class="nx">fn</span> <span class="nx">addDsl</span><span class="p">(</span><span class="nx">Q</span><span class="p">(</span><span class="nx">xps</span><span class="p">)),</span> <span class="nx">addDsl</span><span class="p">(</span><span class="nx">Q</span><span class="p">(</span><span class="nx">win7s</span><span class="p">)),</span> <span class="nx">addDsl</span><span class="p">(</span><span class="nx">Q</span><span class="p">(</span><span class="nx">rest</span><span class="p">))</span>
+
+<span class="nv">addDsl = </span><span class="nf">(promise) -&gt;</span>
+  <span class="nx">promise</span><span class="p">[</span><span class="nx">n</span><span class="p">]</span> <span class="o">=</span> <span class="nx">m</span><span class="p">.</span><span class="nx">bind</span> <span class="nx">promise</span> <span class="k">for</span> <span class="nx">n</span><span class="p">,</span> <span class="nx">m</span> <span class="k">of</span> <span class="nx">dsl</span>
+  <span class="nx">promise</span>
+
+<span class="nv">exports.dsl = </span><span class="nf">(vms) -&gt;</span> <span class="nx">addDsl</span> <span class="nx">Q</span><span class="p">(</span><span class="nx">vms</span><span class="p">)</span>
+<span class="nv">exports.find = </span><span class="nf">(names, attrs...) -&gt;</span>
+  <span class="nx">dsl</span><span class="p">.</span><span class="nx">where</span><span class="p">.</span><span class="nx">apply</span> <span class="nx">Q</span><span class="p">.</span><span class="nx">fcall</span><span class="p">(</span><span class="nf">-&gt;</span> <span class="nx">find</span> <span class="nx">names</span><span class="p">),</span> <span class="nx">attrs</span>
+<span class="nv">exports.fail = </span><span class="nf">(promise) -&gt;</span>
+  <span class="nx">promise</span><span class="p">.</span><span class="nx">fail</span> <span class="nf">(err) -&gt;</span>
+    <span class="nx">console</span><span class="p">.</span><span class="nx">error</span> <span class="s">&quot;</span><span class="si">#{</span><span class="s">&#39;ERROR&#39;</span><span class="p">.</span><span class="nx">red</span><span class="si">}</span><span class="s">: </span><span class="si">#{</span><span class="nx">err</span><span class="si">}</span><span class="s">&quot;</span>
+    <span class="nx">process</span><span class="p">.</span><span class="nx">exit</span> <span class="o">-</span><span class="mi">1</span></div></div></div></div></body></html>

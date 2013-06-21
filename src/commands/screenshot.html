@@ -1,0 +1,20 @@
+<!DOCTYPE html><html lang="en"><head><title>src/commands/screenshot</title></head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0"><meta name="groc-relative-root" content="../../"><meta name="groc-document-path" content="src/commands/screenshot"><meta name="groc-project-path" content="src/commands/screenshot.coffee"><meta name="groc-github-url" content="https://github.com/xdissent/iectrl"><link rel="stylesheet" type="text/css" media="all" href="../../assets/style.css"><script type="text/javascript" src="../../assets/behavior.js"></script><body><div id="meta"><div class="file-path"><a href="https://github.com/xdissent/iectrl/blob/master/src/commands/screenshot.coffee">src/commands/screenshot.coffee</a></div></div><div id="document"><div class="segment"><div class="code"><div class="wrapper"><span class="nv">path = </span><span class="nx">require</span> <span class="s">&#39;path&#39;</span>
+<span class="nv">Q = </span><span class="nx">require</span> <span class="s">&#39;q&#39;</span>
+<span class="nv">cli = </span><span class="nx">require</span> <span class="s">&#39;../cli&#39;</span>
+
+<span class="nv">module.exports = </span><span class="nf">(program) -&gt;</span> <span class="nx">program</span>
+  <span class="p">.</span><span class="nx">command</span><span class="p">(</span><span class="s">&#39;screenshot [names] [output]&#39;</span><span class="p">)</span>
+  <span class="p">.</span><span class="nx">description</span><span class="p">(</span><span class="s">&#39;save screenshots for virtual machines&#39;</span><span class="p">)</span>
+  <span class="p">.</span><span class="nx">action</span> <span class="nf">(names, output, command) -&gt;</span>
+    <span class="nx">cli</span><span class="p">.</span><span class="nx">fail</span> <span class="nx">Q</span><span class="p">.</span><span class="nx">fcall</span> <span class="nf">-&gt;</span>
+      <span class="k">if</span> <span class="nx">names</span><span class="o">?</span> <span class="o">and</span> <span class="o">!</span><span class="nx">output</span><span class="o">?</span> <span class="o">and</span> <span class="nx">names</span><span class="p">.</span><span class="nx">match</span> <span class="sr">/^[\.\~\/]/</span>
+        <span class="nv">output = </span><span class="nx">names</span>
+        <span class="nv">names = </span><span class="kc">null</span>
+      <span class="nx">output</span> <span class="o">?=</span> <span class="nx">process</span><span class="p">.</span><span class="nx">cwd</span><span class="p">()</span>
+      <span class="nx">cli</span><span class="p">.</span><span class="nx">find</span><span class="p">(</span><span class="nx">names</span><span class="p">,</span> <span class="s">&#39;running&#39;</span><span class="p">).</span><span class="nx">found</span><span class="p">().</span><span class="nx">then</span> <span class="nf">(vms) -&gt;</span>
+        <span class="nv">screenshots = </span><span class="p">[]</span>
+        <span class="k">for</span> <span class="nx">vm</span> <span class="k">in</span> <span class="nx">vms</span>
+          <span class="nx">do</span> <span class="nf">(vm) -&gt;</span>
+            <span class="nv">file = </span><span class="nx">path</span><span class="p">.</span><span class="nx">join</span> <span class="nx">output</span><span class="p">,</span> <span class="s">&quot;</span><span class="si">#{</span><span class="nx">vm</span><span class="p">.</span><span class="nx">name</span><span class="si">}</span><span class="s">.png&quot;</span>
+            <span class="nx">screenshots</span><span class="p">.</span><span class="nx">push</span> <span class="nx">Q</span><span class="p">.</span><span class="nx">fcall</span> <span class="nf">-&gt;</span> <span class="nx">vm</span><span class="p">.</span><span class="nx">screenshot</span> <span class="nx">file</span>
+        <span class="nx">Q</span><span class="p">.</span><span class="nx">all</span> <span class="nx">screenshots</span></div></div></div></div></body></html>

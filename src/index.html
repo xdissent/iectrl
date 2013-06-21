@@ -1,0 +1,36 @@
+<!DOCTYPE html><html lang="en"><head><title>src/index</title></head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0"><meta name="groc-relative-root" content="../"><meta name="groc-document-path" content="src/index"><meta name="groc-project-path" content="src/index.coffee"><meta name="groc-github-url" content="https://github.com/xdissent/iectrl"><link rel="stylesheet" type="text/css" media="all" href="../assets/style.css"><script type="text/javascript" src="../assets/behavior.js"></script><body><div id="meta"><div class="file-path"><a href="https://github.com/xdissent/iectrl/blob/master/src/index.coffee">src/index.coffee</a></div></div><div id="document"><div class="segment"><div class="comments"><div class="wrapper"><h1 id="index">index</h1></div></div></div><div class="segment"><div class="comments"><div class="wrapper"><p>This module exports the iectrl cli as a
+<a href="http://visionmedia.github.io/commander.js/">commander.js</a> program as well as
+the <code>IEVM</code> class.</p></div></div><div class="code"><div class="wrapper"><span class="nv">fs = </span><span class="nx">require</span> <span class="s">&#39;fs&#39;</span>
+<span class="nv">program = </span><span class="nx">require</span> <span class="s">&#39;commander&#39;</span>
+<span class="nv">colors = </span><span class="nx">require</span> <span class="s">&#39;colors&#39;</span>
+<span class="nv">pkg = </span><span class="nx">require</span> <span class="s">&#39;../package.json&#39;</span></div></div></div><div class="segment"><div class="comments"><div class="wrapper"><p>All available sub-commands in the cli.</p></div></div><div class="code"><div class="wrapper"><span class="nv">subcommands = </span><span class="p">[</span>
+  <span class="s">&#39;clean&#39;</span>
+  <span class="s">&#39;close&#39;</span>
+  <span class="s">&#39;install&#39;</span>
+  <span class="s">&#39;nuke&#39;</span>
+  <span class="s">&#39;open&#39;</span>
+  <span class="s">&#39;rearm&#39;</span>
+  <span class="s">&#39;reinstall&#39;</span>
+  <span class="s">&#39;restart&#39;</span>
+  <span class="s">&#39;screenshot&#39;</span>
+  <span class="s">&#39;shrink&#39;</span>
+  <span class="s">&#39;start&#39;</span>
+  <span class="s">&#39;status&#39;</span>
+  <span class="s">&#39;stop&#39;</span>
+  <span class="s">&#39;uninstall&#39;</span>
+  <span class="s">&#39;uploaded&#39;</span>
+<span class="p">]</span></div></div></div><div class="segment"><div class="comments"><div class="wrapper"><p>Monkeypatch the <code>commandHelp</code> method for the sub-commands to add colors.</p></div></div><div class="code"><div class="wrapper"><span class="nv">program.Command.prototype._commandHelp = </span><span class="nx">program</span><span class="p">.</span><span class="nx">Command</span><span class="p">.</span><span class="nx">prototype</span><span class="p">.</span><span class="nx">commandHelp</span>
+<span class="nv">program.Command.prototype.commandHelp = </span><span class="nf">-&gt;</span>
+  <span class="k">for</span> <span class="nx">cmd</span> <span class="k">in</span> <span class="k">this</span><span class="p">.</span><span class="nx">commands</span>
+    <span class="nv">cmd._name = </span><span class="nx">cmd</span><span class="p">.</span><span class="nx">_name</span><span class="p">.</span><span class="nx">green</span>
+    <span class="nv">cmd._description = </span><span class="nx">cmd</span><span class="p">.</span><span class="nx">_description</span><span class="p">.</span><span class="nx">blue</span>
+  <span class="nx">@_commandHelp</span><span class="p">()</span></div></div></div><div class="segment"><div class="comments"><div class="wrapper"><p>Add the iectrl version and all sub-commands to the cli program.</p></div></div><div class="code"><div class="wrapper"><span class="nx">program</span><span class="p">.</span><span class="nx">version</span><span class="p">(</span><span class="nx">pkg</span><span class="p">.</span><span class="nx">version</span><span class="p">)</span>
+<span class="nx">require</span><span class="p">(</span><span class="s">&quot;./commands/</span><span class="si">#{</span><span class="nx">s</span><span class="si">}</span><span class="s">&quot;</span><span class="p">)</span> <span class="nx">program</span> <span class="k">for</span> <span class="nx">s</span> <span class="k">in</span> <span class="nx">subcommands</span></div></div></div><div class="segment"><div class="comments"><div class="wrapper"><p>Monkeypatch the <code>parse</code> method to show usage info when no sub-command
+is given.</p></div></div><div class="code"><div class="wrapper"><span class="nv">program._parse = </span><span class="nx">program</span><span class="p">.</span><span class="nx">parse</span>
+<span class="nv">program.parse = </span><span class="nf">-&gt;</span>
+  <span class="nx">program</span><span class="p">.</span><span class="nx">_parse</span> <span class="nx">arguments</span><span class="p">...</span>
+  <span class="nx">program</span><span class="p">.</span><span class="nx">help</span><span class="p">()</span> <span class="k">if</span> <span class="nx">program</span><span class="p">.</span><span class="nx">rawArgs</span><span class="p">.</span><span class="nx">length</span> <span class="o">&lt;</span> <span class="mi">3</span>
+
+
+<span class="nv">module.exports = </span><span class="nx">program</span>
+<span class="nv">module.exports.IEVM = </span><span class="nx">require</span> <span class="s">&#39;./ievm&#39;</span></div></div></div></div></body></html>

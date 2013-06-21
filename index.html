@@ -1,0 +1,112 @@
+<!DOCTYPE html><html lang="en"><head><title>index</title></head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0"><meta name="groc-relative-root" content=""><meta name="groc-document-path" content="index"><meta name="groc-project-path" content="README.md"><meta name="groc-github-url" content="https://github.com/xdissent/iectrl"><link rel="stylesheet" type="text/css" media="all" href="assets/style.css"><script type="text/javascript" src="assets/behavior.js"></script><body><div id="meta"><div class="file-path"><a href="https://github.com/xdissent/iectrl/blob/master/README.md">README.md</a></div></div><div id="document"><div class="segment"><div class="comments"><div class="wrapper"><h1 id="iectrl">iectrl</h1>
+
+<p>Command line interface and <a href="http://nodejs.org">Node</a> module for managing
+<a href="http://xdissent.github.io/ievms">ievms</a> virtual machines.</p>
+
+<p><a href="http://badge.fury.io/js/iectrl"><img src="https://badge.fury.io/js/iectrl.png" alt="NPM version" title="" /></a></p>
+
+<h2 id="requirements">Requirements</h2>
+
+<p>For ievms:</p>
+
+<ul>
+<li><a href="http://virtualbox.org">VirtualBox</a></li>
+<li>Curl (Ubuntu: <code>sudo apt-get install curl</code>)</li>
+<li>Linux Only: unar (Ubuntu: <code>sudo apt-get install unar</code>)</li>
+</ul>
+
+<p>For iectrl:</p>
+
+<ul>
+<li><a href="http://nodejs.org">Node</a></li>
+</ul>
+
+<h2 id="installation">Installation</h2>
+
+<p>Globally:</p>
+
+<pre><code class="sh">$ sudo npm install -g iectrl
+</code></pre>
+
+<p>Locally:</p>
+
+<pre><code class="sh">$ npm install iectrl
+</code></pre>
+
+<h2 id="usage">Usage</h2>
+
+<h3 id="command-line-interface">Command Line Interface</h3>
+
+<p>The <code>iectrl</code> command provides various sub-commands for manipulating one or many
+ievms virtual machines. The optional <code>names</code> argument may be a comma-separated
+(<strong>no spaces</strong>) list of virtual machine identifiers. The identifiers consist of 
+a number representing a given version of IE, an OS name 
+(<code>WinXP/Vista/Win7/Win8</code>), or an exact virtual machine name (<code>IE6 - WinXP</code>, 
+<code>IE7 - Vista</code>). See <code>iectrl &lt;sub-command&gt; --help</code> for more information:</p>
+
+<pre><code class="sh">$ iectrl --help
+
+  Usage: iectrl [options] [command]
+
+  Commands:
+
+    clean [names] restore virtual machines to the clean snapshot
+    close [names] close all running IE processes in virtual machines
+    install [options] [names] install virtual machines with ievms
+    nuke [names] remove all traces of virtual machines
+    open [options] [names] [url] open a URL in IE
+    rearm [options] [names] rearm virtual machines
+    reinstall [options] [names] reinstall virtual machines
+    restart [options] [names] restart virtual machines
+    screenshot [names] [output] save screenshots for virtual machines
+    shrink [options] [names] shrink disk usage for virtual machines
+    start [options] [names] start virtual machines
+    status [options] [names] report the status of one or more vms
+    stop [options] [names] stop virtual machines
+    uninstall [options] [names] uninstall virtual machines
+    uploaded [names] report the last time the VM was uploaded to modern.ie
+
+  Options:
+
+    -h, --help     output usage information
+    -V, --version  output the version number
+</code></pre>
+
+<h3 id="node-module">Node Module</h3>
+
+<p>See the <a href="http://xdissent.github.io/iectrl">annotated source</a> or <a href="http://xdissent.github.io/karma-ievms">karma-ievms</a> for usage examples.</p>
+
+<h2 id="examples">Examples</h2>
+
+<p>Install all <code>WinXP</code> virtual machines from ievms (<code>IE6 - WinXP</code>, <code>IE7 - WinXP</code>, 
+<code>IE8 - WinXP</code>):</p>
+
+<pre><code class="sh">$ iectrl install WinXP
+</code></pre>
+
+<p>Reinstall all <code>Win7</code> virtual machines, plus IE 6 (<code>IE6 - WinXP</code>):</p>
+
+<pre><code class="sh">$ iectrl reinstall 6,Win7
+</code></pre>
+
+<p>Shrink the disk usage for IE10 by removing the <code>.ova</code> file used during install:</p>
+
+<pre><code class="sh">$ iectrl shrink 10
+</code></pre>
+
+<p>Open IE version 6 and 8 and navigate to <code>http://modern.ie</code> auto-starting the
+virtual machines if necessary:</p>
+
+<pre><code class="sh">$ iectrl open -s 6,8 http://modern.ie
+</code></pre>
+
+<p>Take a screenshot of the <code>IE7 - Vista</code> virtual machine, saving it to 
+<code>./shots/IE7 - Vista.png</code>:</p>
+
+<pre><code class="sh">$ iectrl screenshot 'IE7 - Vista' ./shots
+</code></pre>
+
+<p>Close all open IE browser windows:</p>
+
+<pre><code class="sh">$ iectrl close
+</code></pre></div></div></div></div></body></html>
