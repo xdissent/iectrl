@@ -1,3 +1,10 @@
+# # CLI
+
+# Hi there. This gets pretty gross in here but it's just a simple promise-based
+# query api for groups of IEVM instances. I called it a `dsl` for some
+# reason. The module's also called `cli` so nothing really makes sense. Just
+# give me a pass on this one for the time being.
+
 Q = require 'q'
 colors = require 'colors'
 IEVM = require './ievm'

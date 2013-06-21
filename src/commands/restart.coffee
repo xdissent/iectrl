@@ -3,7 +3,7 @@ cli = require '../cli'
 
 module.exports = (program) -> program
   .command('restart [names]')
-  .description('restart virtual machines (or start if not running)')
+  .description('restart virtual machines')
   .option('-s, --start', 'start virtual machine if not running')
   .option('-h, --headless', 'start in headless (non-gui) mode if not running')
   .action (names, command) ->

@@ -62,7 +62,7 @@ class IEVM
 
   # Run ievms shell script with a given environment. A debug function may be
   # passed (like `console.log`) which will be called for each line of ievms
-  # output. Returns a promise for which will resolve when ievms is finished.
+  # output. Returns a promise which will resolve when ievms is finished.
   @ievms: (env, debug) ->
     deferred = Q.defer()
     cmd = ['bash', '-c', @ievmsCmd]
@@ -93,7 +93,7 @@ class IEVM
     new IEVM n for n in @names when n.match "IE#{name}"
 
   # Construct a `VBoxManage` command with arguments. Adds single quotes to all
-  # arguments for shell safety.
+  # arguments for shell "safety".
   @vbm: (cmd, args=[]) ->
     args = ("'#{a}'" for a in args).join ' '
     "VBoxManage #{cmd} #{args}"
@@ -212,11 +212,6 @@ class IEVM
     @debug 'close'
     @exec('taskkill.exe', '/f', '/im', 'iexplore.exe').fail -> Q(true)
 
-  rearmPrep: (cmd) -> @exec 'cmd.exe', '/c',
-    "echo slmgr.vbs /#{cmd} >C:\\Users\\IEUser\\ievms.bat"
-
-  ievmsTask: -> @exec 'schtasks.exe', '/run', '/tn', 'ievms'
-
   # Rearm the virtual machine, extending the license for 90 days. Unfortunately,
   # rearming is only supported by the Win7 virtual machines at this time.
   rearm: (delay=30000) -> @ensureNotMissing().then => @ensureRunning().then =>
@@ -332,22 +327,17 @@ class IEVM
   statusName: -> @info().then (info) -> info.VMState.toUpperCase()
 
   # Promise a `Date` object representing when the archive was last uploaded to
-  # the modern.ie website.
+  # the modern.ie website. Caches the date as a property on the instance.
   uploaded: ->
-    # Return the cached uploaded date if available.
     return Q @_uploaded if @_uploaded?
-    # Defer a 'HEAD' request to the archive URL to determine the `last-modified`
-    # time and date.
     deferred = Q.defer()
     opts = url.parse @url()
     opts.method = 'HEAD'
     req = http.request opts, (res) =>
-      res.on 'data', (chunk) -> # Node needs this or it delays for a second.
-      # Cache the result as property.
+      res.on 'data', (chunk) ->
       @_uploaded = new Date res.headers['last-modified']
       deferred.resolve @_uploaded
     req.on 'error', (err) -> deferred.reject err
-    # Send the request and return a promise for the deferred result.
     req.end()
     deferred.promise
 
@@ -447,6 +437,13 @@ class IEVM
   # Promise to get the VM metadata. Returns empty object on failure.
   getMeta: -> @vbm('getextradata', 'ievms').then(@parseMeta).fail (err) -> Q {}
 
+  # Seed the `ievms.bat` file in the virtual machine with a `slmgr` command.
+  rearmPrep: (cmd) -> @exec 'cmd.exe', '/c',
+    "echo slmgr.vbs /#{cmd} >C:\\Users\\IEUser\\ievms.bat"
+
+  # Execute the `ievms` scheduled task in the virtual machine.
+  ievmsTask: -> @exec 'schtasks.exe', '/run', '/tn', 'ievms'
+
   # Promise the UUID of the VM's hdd.
   hddUuid: -> @info().then (info) =>
     info['"SATA Controller-ImageUUID-0-0"'] ?
@@ -461,7 +458,10 @@ class IEVM
   # Promise an `fs.stat` object for the VM's base hdd file.
   hddStat: -> @hdd().then (hdd) => Q.nfcall fs.stat, hdd.Location
 
+  # Promise a `Date` object representing when the hdd file was created.
   hddCreated: -> @hddStat().then (stat) => stat.mtime
+
+  # ### Waiting Room
 
   _waitForStatus: (statuses, deferred, delay=1000) ->
     statuses = [].concat statuses

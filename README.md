@@ -12,13 +12,13 @@ Requirements
 
 For ievms:
 
-* VirtualBox (http://virtualbox.org)
+* [VirtualBox](http://virtualbox.org)
 * Curl (Ubuntu: `sudo apt-get install curl`)
 * Linux Only: unar (Ubuntu: `sudo apt-get install unar`)
 
 For iectrl:
 
-* Node (http://nodejs.org)
+* [Node](http://nodejs.org)
 
 
 Installation
@@ -63,7 +63,7 @@ $ iectrl --help
     open [options] [names] [url] open a URL in IE
     rearm [options] [names] rearm virtual machines
     reinstall [options] [names] reinstall virtual machines
-    restart [options] [names] restart virtual machines (or start if not running)
+    restart [options] [names] restart virtual machines
     screenshot [names] [output] save screenshots for virtual machines
     shrink [options] [names] shrink disk usage for virtual machines
     start [options] [names] start virtual machines
@@ -81,7 +81,7 @@ $ iectrl --help
 
 ### Node Module
 
-Documentation coming soon. See the source.
+See the [annotated source](http://xdissent.github.io/iectrl) or [karma-ievms](http://xdissent.github.io/karma-ievms) for usage examples.
 
 
 Examples
