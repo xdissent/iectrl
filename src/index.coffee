@@ -1,4 +1,4 @@
-# # iectrl
+# # index
 
 # This module exports the iectrl cli as a
 # [commander.js](http://visionmedia.github.io/commander.js/) program as well as

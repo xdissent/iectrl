@@ -1,4 +1,4 @@
-# # CLI
+# # cli
 
 # Hi there. This gets pretty gross in here but it's just a simple promise-based
 # query api for groups of IEVM instances. I called it a `dsl` for some
