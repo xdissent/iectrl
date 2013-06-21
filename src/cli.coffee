@@ -41,8 +41,8 @@ dsl =
       do (vm) -> seq = seq.then -> Q.fcall fn, vm
     seq
 
-  autoStart: (headless) ->
-    addDsl @then (vms) => @where('!running').all (vm) -> vm.start headless
+  autoStart: (headless) -> addDsl @then (vms) =>
+    @where('!running').all((vm) -> vm.start headless).then -> vms
 
   maybeAutoStart: (maybe, headless) -> if maybe then @autoStart headless else @
 
