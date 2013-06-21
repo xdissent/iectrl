@@ -125,9 +125,3 @@ Close all open IE browser windows:
 ```sh
 $ iectrl close
 ```
-
-
-License
--------
-
-None. (To quote Morrissey, "take it, it's yours")

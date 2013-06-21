@@ -11,6 +11,7 @@
     "type": "git",
     "url": "https://github.com/xdissent/iectrl.git"
   },
+  "homepage": "http://xdissent.github.io/iectrl",
   "keywords": [
     "ievms",
     "windows",
