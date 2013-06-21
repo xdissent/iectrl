@@ -49,12 +49,11 @@ class IEVM
     Win8: 0
 
   # The ievms home (`INSTALL_PATH` in ievms parlance).
-  @ievmsHome: path.join process.env.HOME, '.ievms'
+  @ievmsHome: process.env.INSTALL_PATH ? path.join process.env.HOME, '.ievms'
 
   # The command used to install virtual machines via ievms.
-  @ievmsCmd: 'cd ~/Code/ievms && cat ievms.sh | bash'
-  # @ievmsCmd:
-  #   'curl -s https://raw.github.com/xdissent/ievms/master/ievms.sh | bash'
+  @ievmsCmd: process.env.IEVMS_CMD ?
+    'curl -s https://raw.github.com/xdissent/ievms/master/ievms.sh | bash'
 
   # The host IP as seen by the VM.
   @hostIp = '10.0.2.2'
