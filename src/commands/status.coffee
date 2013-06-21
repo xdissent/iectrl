@@ -55,8 +55,6 @@ module.exports = (program) -> program
   .description('report the status of one or more vms')
   .option('-m, --missing', 'show VMs that are not installed')
   .action (names, command) ->
-    cli.fail cli.find(names)
-      .maybeWhere(!command.missing, '!missing')
-      .found()
-      .all(formatStatus, true)
-      .then (statuses) -> console.log status for status in statuses
+    cli.fail cli.find(names).maybeWhere(!command.missing, '!missing').found()
+      .all(formatStatus, true).then (statuses) ->
+        console.log status for status in statuses

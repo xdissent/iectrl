@@ -6,8 +6,8 @@ module.exports = (program) -> program
   .option('-f, --force', 'force if archive not present (must be redownloaded)')
   .action (names, command) ->
     cli.fail cli.find(names, 'ovaed').maybeWhere(!command.force, 'archived')
-      .found().then (vms) ->
-        xps = (vm for vm in vms when vm.os is 'WinXP')
-        rest = (vm for vm in vms when vm.os isnt 'WinXP')
-        rest.push xps[0] if xps.length > 0
-        cli.dsl(rest).all (vm) -> vm.unova()
+      .found().groupReused (xps, win7s, rest) ->
+        xps.then (xps) -> win7s.then (win7s) -> rest.then (rest) ->
+          rest.push xps[0] if xps.length > 0
+          rest.push win7s[0] if win7s.length > 0
+          cli.dsl(rest).all (vm) -> vm.unova()

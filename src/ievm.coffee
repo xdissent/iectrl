@@ -29,6 +29,7 @@ class IEVM
     'IE7 - Vista'
     'IE8 - Win7'
     'IE9 - Win7'
+    'IE10 - Win7'
     'IE10 - Win8'
   ]
 
@@ -51,9 +52,12 @@ class IEVM
   @ievmsHome: path.join process.env.HOME, '.ievms'
 
   # The command used to install virtual machines via ievms.
-  # @ievmsCmd: 'cd ~/Code/ievms && cat ievms.sh | bash'
-  @ievmsCmd:
-    'curl -s https://raw.github.com/xdissent/ievms/master/ievms.sh | bash'
+  @ievmsCmd: 'cd ~/Code/ievms && cat ievms.sh | bash'
+  # @ievmsCmd:
+  #   'curl -s https://raw.github.com/xdissent/ievms/master/ievms.sh | bash'
+
+  # The host IP as seen by the VM.
+  @hostIp = '10.0.2.2'
 
   # ## Class Methods
 
@@ -195,10 +199,13 @@ class IEVM
 
   # Open a URL in IE within the virtual machine. Throws an exception if it is
   # not running.
-  open: (url) -> @ensureNotMissing().then => @ensureRunning().then =>
-    @debug "open: #{url}"
-    @exec 'cmd.exe', '/c', 'start',
-      'C:\\Program Files\\Internet Explorer\\iexplore.exe', url
+  open: (url, wait=false) -> @ensureNotMissing().then =>
+    @ensureRunning().then => @waitForNetwork().then =>
+      @debug "open: #{url}"
+      if wait
+        return @exec 'C:\\Program Files\\Internet Explorer\\iexplore.exe', url
+      @exec 'cmd.exe', '/c', 'start',
+        'C:\\Program Files\\Internet Explorer\\iexplore.exe', url
 
   # Close running IE windows in the virtual machine, failing silently if IE is
   # not currently running.
@@ -206,17 +213,21 @@ class IEVM
     @debug 'close'
     @exec('taskkill.exe', '/f', '/im', 'iexplore.exe').fail -> Q(true)
 
+  rearmPrep: (cmd) -> @exec 'cmd.exe', '/c',
+    "echo slmgr.vbs /#{cmd} >C:\\Users\\IEUser\\ievms.bat"
+
+  ievmsTask: -> @exec 'schtasks.exe', '/run', '/tn', 'ievms'
+
   # Rearm the virtual machine, extending the license for 90 days. Unfortunately,
   # rearming is only supported by the Win7 virtual machines at this time.
   rearm: (delay=30000) -> @ensureNotMissing().then => @ensureRunning().then =>
-    @ensureRearmsLeft().then =>
+    @ensureRearmsLeft().then => @waitForNetwork().then =>
       @debug 'rearm'
-      @exec('schtasks.exe', '/run', '/tn', 'rearm').then =>
-        @meta().then (meta) =>
-          meta.rearms = (meta.rearms ? []).concat (new Date).getTime()
-          @meta(meta).then => Q.delay(delay).then => @restart().then =>
-            @exec('schtasks.exe', '/run', '/tn', 'activate').then =>
-              Q.delay(delay).then => @restart()
+      @rearmPrep('rearm').then => @ievmsTask().then => @meta().then (meta) =>
+        meta.rearms = (meta.rearms ? []).concat (new Date).getTime()
+        @meta(meta).then => Q.delay(delay).then => @restart().then =>
+          @rearmPrep('ato').then => @ievmsTask().then =>
+            Q.delay(delay).then => @restart()
 
   # Uninstall the virtual machine. Removes the virtual machine and hdd from
   # VirtualBox, keeping the archive or ova on disk.
@@ -253,7 +264,7 @@ class IEVM
   # exception if the ova is not present.
   unova: -> @ensureOvaed().then =>
     @debug 'unova'
-    Q.nfcall fs.unlink, fullOva()
+    Q.nfcall fs.unlink, @fullOva()
 
   # Execute a command in the virtual machine. Throws an exception if it is
   # not installed or not running, or if the command fails. Waits for guest
@@ -271,7 +282,7 @@ class IEVM
       @vbm 'guestcontrol', args...
 
   # Take a screenshot of the virtual machine and save it to disk. Throws an
-  # exception if it is not installed or not running, or if the screenshot 
+  # exception if it is not installed or not running, or if the screenshot
   # command fails.
   screenshot: (file) -> @ensureNotMissing().then => @ensureRunning().then =>
     @debug 'screenshot'
@@ -283,6 +294,7 @@ class IEVM
   archive: ->
     # For the reused XP vms, override the default to point to the IE6 archive.
     return 'IE6_WinXP.zip' if @name in ['IE7 - WinXP', 'IE8 - WinXP']
+    return 'IE9_Win7.zip' if @name is 'IE10 - Win7'
     # Simply replace dashes and spaces with an underscore and add `.zip`.
     "#{@name.replace ' - ', '_'}.zip"
 
@@ -292,6 +304,7 @@ class IEVM
   # Determine the name of the ova file as used by modern.ie.
   ova: ->
     return 'IE6 - WinXP.ova' if @name in ['IE7 - WinXP', 'IE8 - WinXP']
+    return 'IE9 - Win7.ova' if @name is 'IE10 - Win7'
     "#{@name}.ova"
 
   # Determine the full path to the ova file.
@@ -401,13 +414,14 @@ class IEVM
   ievmsEnv: ->
     IEVMS_VERSIONS: @version
     REUSE_XP: if @version in [7, 8] and @os is 'WinXP' then 'yes' else 'no'
+    REUSE_WIN7: if @version is 10 and @os is 'Win7' then 'yes' else 'no'
     INSTALL_PATH: @constructor.ievmsHome
     HOME: process.env.HOME
     PATH: process.env.PATH
 
   # Run a `VBoxManage` command and promise the stdout contents.
   vbm: (args...) ->
-    @_vbmQueue ?= Q()
+    @_vbmQueue = Q() if !@_vbmQueue? or @_vbmQueue.isRejected()
     @_vbmQueue = @_vbmQueue.then =>
       deferred = Q.defer()
       command = @constructor.vbm args.shift(), [@name].concat args
@@ -503,5 +517,12 @@ class IEVM
     deferred = Q.defer()
     @_waitForNoGuestControl(deferred, delay).fail (err) -> deferred.reject err
     deferred.promise.timeout timeout
+
+  waitForNetwork: (host=@constructor.hostIp, retries=3, delay=3000) ->
+    @debug 'waitForNetwork'
+    @exec('ping.exe', host, '-n', '1').fail (err) =>
+      throw err if retries <= 0
+      Q.delay(delay).then =>
+        @waitForNetwork host, retries - 1, delay if retries > 0
 
 module.exports = IEVM

@@ -35,17 +35,33 @@ dsl =
     addDsl @then (vms) -> Q.all(Q.fcall fn, vm for vm in vms).then (vals) ->
       if ret then vals else vms
 
+  seq: (fn) -> @then (vms) ->
+    seq = Q()
+    for vm in vms
+      do (vm) -> seq = seq.then -> Q.fcall fn, vm
+    seq
+
   autoStart: (headless) ->
-    auto = (vm) -> vm.start(headless).then -> Q.delay(5000).then ->
-    addDsl @then (vms) => @where('!running').all(auto).then -> vms
+    addDsl @then (vms) => @where('!running').all (vm) -> vm.start headless
 
   maybeAutoStart: (maybe, headless) -> if maybe then @autoStart headless else @
+
+  groupReused: (fn) ->
+    group = (vms) ->
+      win7Names = ['IE9 - Win7', 'IE10 - Win7']
+      xps = (vm for vm in vms when vm.os is 'WinXP')
+      win7s = (vm for vm in vms when vm.name in win7Names)
+      rest = (vm for vm in vms when vm.os isnt 'WinXP' and
+        vm.name not in win7Names)
+      [xps, win7s, rest]
+    @then(group).spread (xps, win7s, rest) ->
+      fn addDsl(Q(xps)), addDsl(Q(win7s)), addDsl(Q(rest))
 
 addDsl = (promise) ->
   promise[n] = m.bind promise for n, m of dsl
   promise
 
-exports.dsl = (vms) -> addDsl Q.fcall -> vms
+exports.dsl = (vms) -> addDsl Q(vms)
 exports.find = (names, attrs...) ->
   dsl.where.apply Q.fcall(-> find names), attrs
 exports.fail = (promise) ->
