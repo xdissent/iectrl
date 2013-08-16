@@ -5,7 +5,7 @@
   <span class="p">.</span><span class="nx">command</span><span class="p">(</span><span class="s">&#39;install [names]&#39;</span><span class="p">)</span>
   <span class="p">.</span><span class="nx">description</span><span class="p">(</span><span class="s">&#39;install virtual machines with ievms&#39;</span><span class="p">)</span>
   <span class="p">.</span><span class="nx">option</span><span class="p">(</span><span class="s">&#39;-X, --no-reuse-xp&#39;</span><span class="p">,</span> <span class="s">&#39;Do not reuse the XP VM for IE7 and IE8&#39;</span><span class="p">)</span>
-  <span class="p">.</span><span class="nx">option</span><span class="p">(</span><span class="s">&#39;-7, --no-reuse-7&#39;</span><span class="p">,</span> <span class="s">&#39;Do not reuse the Win7 VM for IE10&#39;</span><span class="p">)</span>
+  <span class="p">.</span><span class="nx">option</span><span class="p">(</span><span class="s">&#39;-7, --no-reuse-7&#39;</span><span class="p">,</span> <span class="s">&#39;Do not reuse the Win7 VM for IE10 and IE11&#39;</span><span class="p">)</span>
   <span class="p">.</span><span class="nx">option</span><span class="p">(</span><span class="s">&#39;-s, --shrink&#39;</span><span class="p">,</span> <span class="s">&#39;Shrink the virtual machines after installing&#39;</span><span class="p">)</span>
   <span class="p">.</span><span class="nx">action</span> <span class="nf">(names, command) -&gt;</span>
     <span class="nx">cli</span><span class="p">.</span><span class="nx">fail</span> <span class="nx">cli</span><span class="p">.</span><span class="nx">find</span><span class="p">(</span><span class="nx">names</span><span class="p">).</span><span class="nx">found</span><span class="p">().</span><span class="nx">then</span> <span class="nf">(vms) -&gt;</span>
@@ -26,6 +26,8 @@
       <span class="k">else</span>
         <span class="k">if</span> <span class="s">&#39;IE10 - Win7&#39;</span> <span class="o">not</span> <span class="k">in</span> <span class="nx">names</span>
           <span class="nv">vms = </span><span class="p">(</span><span class="nx">vm</span> <span class="k">for</span> <span class="nx">vm</span> <span class="k">in</span> <span class="nx">vms</span> <span class="k">when</span> <span class="nx">vm</span><span class="p">.</span><span class="nx">name</span> <span class="o">isnt</span> <span class="s">&#39;IE10 - Win7&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="s">&#39;IE11 - Win7&#39;</span> <span class="o">not</span> <span class="k">in</span> <span class="nx">names</span>
+          <span class="nv">vms = </span><span class="p">(</span><span class="nx">vm</span> <span class="k">for</span> <span class="nx">vm</span> <span class="k">in</span> <span class="nx">vms</span> <span class="k">when</span> <span class="nx">vm</span><span class="p">.</span><span class="nx">name</span> <span class="o">isnt</span> <span class="s">&#39;IE11 - Win7&#39;</span><span class="p">)</span>
 
       <span class="nx">cli</span><span class="p">.</span><span class="nx">dsl</span><span class="p">(</span><span class="nx">vms</span><span class="p">).</span><span class="nx">found</span><span class="p">().</span><span class="nx">groupReused</span> <span class="nf">(xps, win7s, rest) -&gt;</span>
         <span class="nv">i = </span><span class="nf">(vm) -&gt;</span> <span class="nx">vm</span><span class="p">.</span><span class="nx">install</span><span class="p">()</span>
