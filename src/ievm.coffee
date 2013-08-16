@@ -16,7 +16,7 @@ class IEVM
   # ## Class Properties
 
   # A list of all available IE versions.
-  @versions: [6, 7, 8, 9, 10]
+  @versions: [6, 7, 8, 9, 10, 11]
 
   # A list of all available OS names.
   @oses: ['WinXP', 'Vista', 'Win7', 'Win8']
@@ -31,6 +31,7 @@ class IEVM
     'IE9 - Win7'
     'IE10 - Win7'
     'IE10 - Win8'
+    'IE11 - Win7'
   ]
 
   # A list of possible VM statuses.
@@ -289,7 +290,7 @@ class IEVM
   archive: ->
     # For the reused XP vms, override the default to point to the IE6 archive.
     return 'IE6_WinXP.zip' if @name in ['IE7 - WinXP', 'IE8 - WinXP']
-    return 'IE9_Win7.zip' if @name is 'IE10 - Win7'
+    return 'IE9_Win7.zip' if @name in ['IE10 - Win7', 'IE11 - Win7']
     # Simply replace dashes and spaces with an underscore and add `.zip`.
     "#{@name.replace ' - ', '_'}.zip"
 
@@ -299,7 +300,7 @@ class IEVM
   # Determine the name of the ova file as used by modern.ie.
   ova: ->
     return 'IE6 - WinXP.ova' if @name in ['IE7 - WinXP', 'IE8 - WinXP']
-    return 'IE9 - Win7.ova' if @name is 'IE10 - Win7'
+    return 'IE9 - Win7.ova' if @name in ['IE10 - Win7', 'IE11 - Win7']
     "#{@name}.ova"
 
   # Determine the full path to the ova file.
@@ -404,7 +405,7 @@ class IEVM
   ievmsEnv: ->
     IEVMS_VERSIONS: @version
     REUSE_XP: if @version in [7, 8] and @os is 'WinXP' then 'yes' else 'no'
-    REUSE_WIN7: if @version is 10 and @os is 'Win7' then 'yes' else 'no'
+    REUSE_WIN7: if @version in [10, 11] and @os is 'Win7' then 'yes' else 'no'
     INSTALL_PATH: @constructor.ievmsHome
     HOME: process.env.HOME
     PATH: process.env.PATH

@@ -5,7 +5,7 @@ module.exports = (program) -> program
   .command('install [names]')
   .description('install virtual machines with ievms')
   .option('-X, --no-reuse-xp', 'Do not reuse the XP VM for IE7 and IE8')
-  .option('-7, --no-reuse-7', 'Do not reuse the Win7 VM for IE10')
+  .option('-7, --no-reuse-7', 'Do not reuse the Win7 VM for IE10 and IE11')
   .option('-s, --shrink', 'Shrink the virtual machines after installing')
   .action (names, command) ->
     cli.fail cli.find(names).found().then (vms) ->
@@ -29,6 +29,8 @@ module.exports = (program) -> program
       else
         if 'IE10 - Win7' not in names
           vms = (vm for vm in vms when vm.name isnt 'IE10 - Win7')
+        if 'IE11 - Win7' not in names
+          vms = (vm for vm in vms when vm.name isnt 'IE11 - Win7')
 
       cli.dsl(vms).found().groupReused (xps, win7s, rest) ->
         i = (vm) -> vm.install()

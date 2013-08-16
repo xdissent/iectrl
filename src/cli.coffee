@@ -55,7 +55,7 @@ dsl =
 
   groupReused: (fn) ->
     group = (vms) ->
-      win7Names = ['IE9 - Win7', 'IE10 - Win7']
+      win7Names = ['IE9 - Win7', 'IE10 - Win7', 'IE11 - Win7']
       xps = (vm for vm in vms when vm.os is 'WinXP')
       win7s = (vm for vm in vms when vm.name in win7Names)
       rest = (vm for vm in vms when vm.os isnt 'WinXP' and
