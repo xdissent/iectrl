@@ -9,6 +9,17 @@ Q = require 'q'
 colors = require 'colors'
 IEVM = require './ievm'
 
+exports.isNames = (names) ->
+  return false unless typeof names is 'string'
+  for name in names.split ','
+    return false unless isName name
+  true
+
+isName = (name) ->
+  return true if name in IEVM.names or name in IEVM.oses
+  return true if name.match(/^\d+$/) and parseInt(name) in IEVM.versions
+  false
+
 exports.columns = (cols...) ->
   ("#{c}                                ".slice 0, 32 for c in cols).join ''
 

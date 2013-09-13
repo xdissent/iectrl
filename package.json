@@ -26,7 +26,7 @@
     "url": "https://github.com/xdissent/iectrl/issues"
   },
   "dependencies": {
-    "commander": "~1.2.0",
+    "commander": "git+https://github.com/millermedeiros/commander.js.git#variadic",
     "q": "~0.9.6",
     "colors": "~0.6.0-1",
     "moment": "~2.0.0",

@@ -277,6 +277,14 @@ class IEVM
       ]
       @vbm 'guestcontrol', args...
 
+  # Copy a local file the virtual machine.
+  copy: (src, dest) -> @ensureNotMissing().then => @ensureRunning().then =>
+    @waitForGuestControl().then =>
+      @debug "copy: #{src} #{dest}"
+      pass = if @os isnt 'WinXP' then ['--password', 'Passw0rd!'] else []
+      args = ['cp', src, dest, '--username', 'IEUser', pass...]
+      @vbm 'guestcontrol', args...
+
   # Take a screenshot of the virtual machine and save it to disk. Throws an
   # exception if it is not installed or not running, or if the screenshot
   # command fails.

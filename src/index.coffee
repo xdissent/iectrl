@@ -26,6 +26,8 @@ subcommands = [
   'stop'
   'uninstall'
   'uploaded'
+  'exec'
+  'copy'
 ]
 
 # Monkeypatch the `commandHelp` method for the sub-commands to add colors.
