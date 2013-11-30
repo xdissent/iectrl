@@ -9,6 +9,7 @@ statusAttrs = [
   'archived'
   'expires'
   'rearmsLeft'
+  'ievmsVersion'
 ]
 
 formatStatusName = (status) ->
@@ -42,13 +43,14 @@ formatOvaed = (ovaed) -> formatFile 'ova', ovaed
 formatArchived = (archived) -> formatFile 'archive', archived
 
 formatStatus = (vm) -> Q.all(vm[attr]() for attr in statusAttrs)
-  .spread (statusName, ovaed, archived, expires, rearmsLeft) ->
+  .spread (statusName, ovaed, archived, expires, rearmsLeft, version) ->
     status = formatStatusName statusName
     ovaed = formatOvaed ovaed
     archived = formatArchived archived
     expires = formatExpires expires
     rearms = if statusName is 'MISSING' then '' else formatRearms rearmsLeft
-    cli.columns vm.name, status, ovaed, archived, expires, rearms
+    version = "ievms v#{version ? 'unknown'.red}"
+    cli.columns vm.name, status, ovaed, archived, expires, rearms, version
 
 module.exports = (program) -> program
   .command('status [names]')
