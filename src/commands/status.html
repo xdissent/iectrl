@@ -9,6 +9,7 @@
   <span class="s">&#39;archived&#39;</span>
   <span class="s">&#39;expires&#39;</span>
   <span class="s">&#39;rearmsLeft&#39;</span>
+  <span class="s">&#39;ievmsVersion&#39;</span>
 <span class="p">]</span>
 
 <span class="nv">formatStatusName = </span><span class="nf">(status) -&gt;</span>
@@ -42,13 +43,14 @@
 <span class="nv">formatArchived = </span><span class="nf">(archived) -&gt;</span> <span class="nx">formatFile</span> <span class="s">&#39;archive&#39;</span><span class="p">,</span> <span class="nx">archived</span>
 
 <span class="nv">formatStatus = </span><span class="nf">(vm) -&gt;</span> <span class="nx">Q</span><span class="p">.</span><span class="nx">all</span><span class="p">(</span><span class="nx">vm</span><span class="p">[</span><span class="nx">attr</span><span class="p">]()</span> <span class="k">for</span> <span class="nx">attr</span> <span class="k">in</span> <span class="nx">statusAttrs</span><span class="p">)</span>
-  <span class="p">.</span><span class="nx">spread</span> <span class="nf">(statusName, ovaed, archived, expires, rearmsLeft) -&gt;</span>
+  <span class="p">.</span><span class="nx">spread</span> <span class="nf">(statusName, ovaed, archived, expires, rearmsLeft, version) -&gt;</span>
     <span class="nv">status = </span><span class="nx">formatStatusName</span> <span class="nx">statusName</span>
     <span class="nv">ovaed = </span><span class="nx">formatOvaed</span> <span class="nx">ovaed</span>
     <span class="nv">archived = </span><span class="nx">formatArchived</span> <span class="nx">archived</span>
     <span class="nv">expires = </span><span class="nx">formatExpires</span> <span class="nx">expires</span>
     <span class="nv">rearms = </span><span class="k">if</span> <span class="nx">statusName</span> <span class="o">is</span> <span class="s">&#39;MISSING&#39;</span> <span class="k">then</span> <span class="s">&#39;&#39;</span> <span class="k">else</span> <span class="nx">formatRearms</span> <span class="nx">rearmsLeft</span>
-    <span class="nx">cli</span><span class="p">.</span><span class="nx">columns</span> <span class="nx">vm</span><span class="p">.</span><span class="nx">name</span><span class="p">,</span> <span class="nx">status</span><span class="p">,</span> <span class="nx">ovaed</span><span class="p">,</span> <span class="nx">archived</span><span class="p">,</span> <span class="nx">expires</span><span class="p">,</span> <span class="nx">rearms</span>
+    <span class="nv">version = </span><span class="s">&quot;ievms v</span><span class="si">#{</span><span class="nx">version</span> <span class="o">?</span> <span class="s">&#39;unknown&#39;</span><span class="p">.</span><span class="nx">red</span><span class="si">}</span><span class="s">&quot;</span>
+    <span class="nx">cli</span><span class="p">.</span><span class="nx">columns</span> <span class="nx">vm</span><span class="p">.</span><span class="nx">name</span><span class="p">,</span> <span class="nx">status</span><span class="p">,</span> <span class="nx">ovaed</span><span class="p">,</span> <span class="nx">archived</span><span class="p">,</span> <span class="nx">expires</span><span class="p">,</span> <span class="nx">rearms</span><span class="p">,</span> <span class="nx">version</span>
 
 <span class="nv">module.exports = </span><span class="nf">(program) -&gt;</span> <span class="nx">program</span>
   <span class="p">.</span><span class="nx">command</span><span class="p">(</span><span class="s">&#39;status [names]&#39;</span><span class="p">)</span>
