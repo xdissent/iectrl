@@ -267,15 +267,17 @@ class IEVM
   # control before proceeding.
   exec: (cmd, args...) -> @ensureNotMissing().then => @ensureRunning().then =>
     @waitForGuestControl().then =>
-      @debug "exec: #{cmd} #{args.join ' '}"
-      pass = if @os isnt 'WinXP' then ['--password', 'Passw0rd!'] else []
-      args = [
-        'exec', '--image', cmd,
-        '--wait-exit',
-        '--username', 'IEUser', pass...,
-        '--', args...
-      ]
-      @vbm 'guestcontrol', args...
+      @ievmsVersion().then (version) =>
+        @debug "exec: #{cmd} #{args.join ' '}"
+        pass = ['--password', 'Passw0rd!']
+        pass = [] if @os is 'WinXP' and !version?
+        args = [
+          'exec', '--image', cmd,
+          '--wait-exit',
+          '--username', 'IEUser', pass...,
+          '--', args...
+        ]
+        @vbm 'guestcontrol', args...
 
   # Take a screenshot of the virtual machine and save it to disk. Throws an
   # exception if it is not installed or not running, or if the screenshot
@@ -393,6 +395,9 @@ class IEVM
   # Promise the number of rearms left for the VM.
   rearmsLeft: -> @rearmDates().then (rearms) =>
     @constructor.rearms[@os] - rearms.length
+
+  # Promise the version of ievms which created this VM.
+  ievmsVersion: -> @meta().then (meta) -> meta.version
 
   # ### Utilities
 
