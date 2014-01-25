@@ -203,9 +203,9 @@ class IEVM
     @ensureRunning().then => @waitForNetwork().then =>
       @debug "open: #{url}"
       if wait
-        return @exec 'C:\\Program Files\\Internet Explorer\\iexplore.exe', url
+        return @exec 'explore', url
       @exec 'cmd.exe', '/c', 'start',
-        'C:\\Program Files\\Internet Explorer\\iexplore.exe', url
+        'explore', url
 
   # Close running IE windows in the virtual machine, failing silently if IE is
   # not currently running.
