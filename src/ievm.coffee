@@ -54,7 +54,7 @@ class IEVM
 
   # The command used to install virtual machines via ievms.
   @ievmsCmd: process.env.IEVMS_CMD ?
-    'curl -s https://raw.github.com/xdissent/ievms/master/ievms.sh | bash'
+    'curl -s https://raw.githubusercontent.com/xdissent/ievms/master/ievms.sh | bash'
 
   # The host IP as seen by the VM.
   @hostIp = '10.0.2.2'
