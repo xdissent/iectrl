@@ -54,6 +54,7 @@ class IEVM
 
   # The command used to install virtual machines via ievms.
   @ievmsCmd: process.env.IEVMS_CMD ?
+    # coffeelint: disable=max_line_length
     'curl -s https://raw.githubusercontent.com/xdissent/ievms/master/ievms.sh | bash'
 
   # The host IP as seen by the VM.
