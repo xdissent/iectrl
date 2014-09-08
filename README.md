@@ -60,6 +60,7 @@ $ iectrl --help
     close [names] close all running IE processes in virtual machines
     install [options] [names] install virtual machines with ievms
     nuke [names] remove all traces of virtual machines
+    list         list available virtual machines
     open [options] [names] [url] open a URL in IE
     rearm [options] [names] rearm virtual machines
     reinstall [options] [names] reinstall virtual machines
