@@ -15,6 +15,7 @@ subcommands = [
   'close'
   'install'
   'nuke'
+  'list'
   'open'
   'rearm'
   'reinstall'
