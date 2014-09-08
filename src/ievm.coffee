@@ -52,9 +52,11 @@ class IEVM
   # The ievms home (`INSTALL_PATH` in ievms parlance).
   @ievmsHome: process.env.INSTALL_PATH ? path.join process.env.HOME, '.ievms'
 
+  # The ievms script URL.
+  @ievmsUrl: 'https://raw.githubusercontent.com/xdissent/ievms/master/ievms.sh'
+
   # The command used to install virtual machines via ievms.
-  @ievmsCmd: process.env.IEVMS_CMD ?
-    'curl -s https://raw.githubusercontent.com/xdissent/ievms/master/ievms.sh | bash'
+  @ievmsCmd: process.env.IEVMS_CMD ? "curl -s #{@ievmsUrl} | bash"
 
   # The host IP as seen by the VM.
   @hostIp = '10.0.2.2'
