@@ -68,9 +68,9 @@ class IEVM
   # output. Returns a promise which will resolve when ievms is finished.
   @ievms: (env, debug) ->
     deferred = Q.defer()
-    cmd = ['bash', '-c', @ievmsCmd]
-    debug "ievms: #{cmd.join ' '}" if debug?
-    ievms = child_process.spawn cmd.shift(), cmd, env: env
+    cmd = @ievmsCmd
+    debug "ievms: #{cmd}" if debug?
+    ievms = child_process.exec cmd, env: env
     ievms.on 'error', (err) -> deferred.reject err
     ievms.on 'exit', -> deferred.resolve true
     if debug? then ievms.stdout.on 'readable', ->
