@@ -10,6 +10,7 @@ url = require 'url'
 http = require 'http'
 child_process = require 'child_process'
 debug = require 'debug'
+os = require 'os'
 
 class IEVM
 
@@ -75,7 +76,7 @@ class IEVM
     ievms.on 'exit', -> deferred.resolve true
     if debug? then ievms.stdout.on 'readable', ->
       out = ievms.stdout.read()
-      debug "ievms: #{l}" for l in out.toString().trim().split "\n" if out?
+      debug "ievms: #{l}" for l in out.toString().trim().split os.EOL if out?
     deferred.promise
 
   # Build an array with one instance of each possible IEVM type.
@@ -98,15 +99,15 @@ class IEVM
   # Construct a `VBoxManage` command with arguments. Adds single quotes to all
   # arguments for shell "safety".
   @vbm: (cmd, args=[]) ->
-    args = ("'#{a}'" for a in args).join ' '
+    args = ("\"#{a}\"" for a in args).join ' '
     "VBoxManage #{cmd} #{args}"
 
   # Parse the output from `VBoxManage list hdds` into an object.
   @parseHdds: (s) ->
     hdds = {}
-    for chunk in s.split "\n\n"
+    for chunk in s.split os.EOL + os.EOL
       hdd = {}
-      for line in chunk.split "\n"
+      for line in chunk.split os.EOL
         pieces = line.split ':'
         hdd[pieces.shift()] = pieces.join(':').trim()
       hdds[hdd.UUID] = hdd
@@ -431,7 +432,7 @@ class IEVM
   # Parse the "machinereadable" `VBoxManage` vm info output format.
   parseInfo: (s) ->
     obj = {}
-    for line in s.trim().split "\n"
+    for line in s.trim().split os.EOL
       pieces = line.split '='
       obj[pieces.shift()] = pieces.join('=').replace(/^"/, '').replace /"$/, ''
     obj
