@@ -16,10 +16,10 @@ class IEVM
   # ## Class Properties
 
   # A list of all available IE versions.
-  @versions: [6, 7, 8, 9, 10, 11]
+  @versions: ['6', '7', '8', '9', '10', '11', 'EDGE']
 
   # A list of all available OS names.
-  @oses: ['WinXP', 'Vista', 'Win7', 'Win8']
+  @oses: ['WinXP', 'Vista', 'Win7', 'Win8', 'Win10']
 
   # A list of all supported ievms version/OS combos.
   @names: [
@@ -32,6 +32,7 @@ class IEVM
     'IE10 - Win7'
     'IE10 - Win8'
     'IE11 - Win7'
+    'MSEdge - Win10'
   ]
 
   # A list of possible VM statuses.
@@ -48,6 +49,7 @@ class IEVM
     Vista: 0
     Win7: 5
     Win8: 0
+    Win10: 0
 
   # The ievms home (`INSTALL_PATH` in ievms parlance).
   @ievmsHome: process.env.INSTALL_PATH ? path.join process.env.HOME, '.ievms'
@@ -88,10 +90,13 @@ class IEVM
     throw new Error 'No name specified' unless name?
     if typeof name isnt 'string' and typeof name isnt 'number'
       throw new Error "Invalid name: '#{name}'"
-    return [new IEVM name] if name.match /^IE/
+    name = "#{name}"
+    return [new IEVM name] if name.match /^(IE|MSEdge)/
     if name.match /^(Win|Vista)/
       return (new IEVM n for n in @names when n.match "- #{name}")
-    if !name.match(/^\d+$/) or parseInt(name) not in @versions
+    if name.match /^edge$/i
+      return new IEVM 'MSEdge - Win10'
+    if !name.match(/^\d+$/) or name not in @versions
       throw new Error "Invalid name: '#{name}'"
     new IEVM n for n in @names when n.match "IE#{name}"
 
@@ -133,11 +138,11 @@ class IEVM
   constructor: (@name) ->
     if @name not in @constructor.names
       throw new Error "Invalid name: '#{@name}'"
-    pieces = @name.split ' '
-    @version = parseInt pieces[0].replace 'IE', ''
+    @name = "#{@name}"
+    @version = @name.toUpperCase().replace(/^(?:IE|MS)(\d+|EDGE).*/, '$1')
     if @version not in @constructor.versions
       throw new Error "Invalid version: '#{@version}'"
-    @os = pieces.pop()
+    @os = @name.split(' ').pop()
     throw new Error "Invalid OS: '#{@os}'" unless @os in @constructor.oses
 
   # ### Validation Helpers
@@ -274,10 +279,9 @@ class IEVM
         pass = ['--password', 'Passw0rd!']
         pass = [] if @os is 'WinXP' and !version?
         args = [
-          'exec', '--image', cmd,
-          '--wait-exit',
+          'run', '--exe', cmd,
           '--username', 'IEUser', pass...,
-          '--', args...
+          args...
         ]
         @vbm 'guestcontrol', args...
 
@@ -311,8 +315,12 @@ class IEVM
   fullOva: -> path.join @constructor.ievmsHome, @ova()
 
   # Generate the full URL to the modern.ie archive.
-  url: -> 'http://virtualization.modern.ie/vhd/IEKitV1_Final/VirtualBox/OSX/' +
-    @archive()
+  url: ->
+    if @version is 'EDGE'
+      return 'https://az792536.vo.msecnd.net/vms/VMBuild_20150801/VirtualBox/' +
+        'MSEdge/Mac/Microsoft%20Edge.Win10.For.Mac.VirtualBox.zip'
+    'http://virtualization.modern.ie/vhd/IEKitV1_Final/VirtualBox/OSX/' +
+      @archive()
 
   # Retrieve and parse the virtual machine info from `VBoxManage showvminfo`.
   # If `E_ACCESSDENIED` is caught, the command will be retried up to 3 times
@@ -411,8 +419,8 @@ class IEVM
   # Build an environment hash to pass to ievms for installation.
   ievmsEnv: ->
     IEVMS_VERSIONS: @version
-    REUSE_XP: if @version in [7, 8] and @os is 'WinXP' then 'yes' else 'no'
-    REUSE_WIN7: if @version in [10, 11] and @os is 'Win7' then 'yes' else 'no'
+    REUSE_XP: if @version in ['7', '8'] and @os is 'WinXP' then 'yes' else 'no'
+    REUSE_WIN7: if @version in ['10', '11'] and @os is 'Win7' then 'yes' else 'no'
     INSTALL_PATH: @constructor.ievmsHome
     HOME: process.env.HOME
     PATH: process.env.PATH
