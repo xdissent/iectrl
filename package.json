@@ -1,6 +1,6 @@
 {
   "name": "iectrl",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Command line interface and Node module for managing ievms virtual machines",
   "main": "index.js",
   "scripts": {
