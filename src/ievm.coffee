@@ -7,7 +7,7 @@ fs = require 'fs'
 path = require 'path'
 Q = require 'q'
 url = require 'url'
-http = require 'http'
+https = require 'https'
 child_process = require 'child_process'
 debug = require 'debug'
 
@@ -218,7 +218,8 @@ class IEVM
   # not currently running.
   close: -> @ensureNotMissing().then => @ensureRunning().then =>
     @debug 'close'
-    @exec('taskkill.exe', '/f', '/im', 'iexplore.exe').fail -> Q(true)
+    cmd = if @version is 'EDGE' then 'MicrosoftEdge.exe' else 'iexplore.exe'
+    @exec('taskkill.exe', '/f', '/im', cmd).fail -> Q(true)
 
   # Rearm the virtual machine, extending the license for 90 days. Unfortunately,
   # rearming is only supported by the Win7 virtual machines at this time.
@@ -309,6 +310,7 @@ class IEVM
   ova: ->
     return 'IE6 - WinXP.ova' if @name in ['IE7 - WinXP', 'IE8 - WinXP']
     return 'IE9 - Win7.ova' if @name in ['IE10 - Win7', 'IE11 - Win7']
+    return 'MSEdge - Win10_preview.ova' if @name is 'MSEdge - Win10'
     "#{@name}.ova"
 
   # Determine the full path to the ova file.
@@ -317,9 +319,9 @@ class IEVM
   # Generate the full URL to the modern.ie archive.
   url: ->
     if @version is 'EDGE'
-      return 'https://az792536.vo.msecnd.net/vms/VMBuild_20150801/VirtualBox/' +
-        'MSEdge/Mac/Microsoft%20Edge.Win10.For.Mac.VirtualBox.zip'
-    'http://virtualization.modern.ie/vhd/IEKitV1_Final/VirtualBox/OSX/' +
+      return 'https://az792536.vo.msecnd.net/vms/VMBuild_20160802/VirtualBox/' +
+        'MSEdge/MSEdge.Win10_RS1.VirtualBox.zip'
+    'https://az412801.vo.msecnd.net/vhd/IEKitV1_Final/VirtualBox/OSX/' +
       @archive()
 
   # Retrieve and parse the virtual machine info from `VBoxManage showvminfo`.
@@ -346,7 +348,7 @@ class IEVM
     deferred = Q.defer()
     opts = url.parse @url()
     opts.method = 'HEAD'
-    req = http.request opts, (res) =>
+    req = https.request opts, (res) =>
       res.on 'data', (chunk) ->
       @_uploaded = new Date res.headers['last-modified']
       deferred.resolve @_uploaded
