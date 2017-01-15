@@ -280,9 +280,9 @@ class IEVM
         pass = ['--password', 'Passw0rd!']
         pass = [] if @os is 'WinXP' and !version?
         args = [
+          'exec', '--image', cmd,
           '--username', 'IEUser', pass...,
-          'run', cmd, '--',
-          args...
+          '--', args...
         ]
         @vbm 'guestcontrol', args...
 
